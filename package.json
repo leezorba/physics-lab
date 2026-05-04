@@ -1,0 +1,16 @@
+{
+  "name": "physics-lab",
+  "version": "1.0.0",
+  "description": "A Railway-ready collection of interactive physics simulators.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  }
+}

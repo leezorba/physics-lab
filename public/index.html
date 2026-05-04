@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🪐</text></svg>"
+    />
+    <title>Hwa's Physics Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/shared/lab.css" />
+    <script>
+      (function () {
+        var stored = localStorage.getItem("physicsLabTheme");
+        document.documentElement.dataset.theme = stored === "light" ? "light" : "dark";
+      })();
+    </script>
+  </head>
+  <body class="home-page">
+    <button
+      class="theme-toggle"
+      id="themeToggle"
+      type="button"
+      aria-label="Toggle color theme"
+      title="Toggle color theme"
+    >
+      <span class="theme-icon theme-icon-dark" aria-hidden="true">◑</span>
+      <span class="theme-icon theme-icon-light" aria-hidden="true">◐</span>
+    </button>
+    <main class="lab-home">
+      <header class="home-hero">
+        <p class="eyebrow">Interactive science shelves</p>
+        <h1>Hwa's Physics Lab</h1>
+        <p class="lede">
+          A growing collection of interactive physics simulators for space,
+          mechanics, and the engineering questions that connect them.
+        </p>
+      </header>
+
+      <section class="shelf" aria-labelledby="astro-title">
+        <div class="shelf-header">
+          <p class="shelf-kicker">Shelf 01</p>
+          <h2 id="astro-title">Astrophysics</h2>
+        </div>
+        <div class="shelf-board">
+          <article class="sim-card">
+            <div class="sim-icon" aria-hidden="true">🚀</div>
+            <div>
+              <h3>Cross-Planet Rocket Ascent</h3>
+              <p>
+                Launch the same vehicle through Earth, Mars, Venus, Moon, and
+                Titan atmospheres while watching drag, dynamic pressure, and
+                Max-Q.
+              </p>
+              <a class="open-link" href="/astro/rocket.html">Open</a>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="shelf" aria-labelledby="mech-title">
+        <div class="shelf-header">
+          <p class="shelf-kicker">Shelf 02</p>
+          <h2 id="mech-title">Mechanics</h2>
+        </div>
+        <div class="shelf-board">
+          <article class="sim-card">
+            <div class="sim-icon" aria-hidden="true">▣</div>
+            <div>
+              <h3>Friction Lab</h3>
+              <p>
+                Compare static friction, kinetic friction, normal force, and
+                stick-slip behavior across gravity environments.
+              </p>
+              <a class="open-link" href="/mech/friction.html">Open</a>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="shelf muted-shelf" aria-labelledby="future-title">
+        <div class="shelf-header">
+          <p class="shelf-kicker">Future shelves</p>
+          <h2 id="future-title">Coming Soon</h2>
+        </div>
+        <div class="shelf-board future-grid">
+          <article class="sim-card is-coming">
+            <div class="sim-icon" aria-hidden="true">℃</div>
+            <div>
+              <h3>Thermodynamics</h3>
+              <p>Heat, work, engines, entropy, and energy transfer.</p>
+            </div>
+          </article>
+          <article class="sim-card is-coming">
+            <div class="sim-icon" aria-hidden="true">↯</div>
+            <div>
+              <h3>Electromagnetism</h3>
+              <p>Fields, circuits, forces, waves, and charge behavior.</p>
+            </div>
+          </article>
+          <article class="sim-card is-coming">
+            <div class="sim-icon" aria-hidden="true">ψ</div>
+            <div>
+              <h3>Quantum</h3>
+              <p>Probability amplitudes, measurement, and small-scale models.</p>
+            </div>
+          </article>
+          <article class="sim-card is-coming">
+            <div class="sim-icon" aria-hidden="true">≈</div>
+            <div>
+              <h3>Fluids</h3>
+              <p>Pressure, drag, buoyancy, flow, and boundary layers.</p>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+    <footer class="site-credits">
+      Built by Hwa Lee ·
+      <a href="#" rel="noopener" aria-label="GitHub (link coming soon)">GitHub</a>
+    </footer>
+    <script>
+      (function () {
+        var btn = document.getElementById("themeToggle");
+        if (!btn) return;
+        btn.addEventListener("click", function () {
+          var cur = document.documentElement.dataset.theme;
+          var next = cur === "light" ? "dark" : "light";
+          document.documentElement.dataset.theme = next;
+          localStorage.setItem("physicsLabTheme", next);
+          window.dispatchEvent(new CustomEvent("themechange", { detail: next }));
+        });
+      })();
+    </script>
+  </body>
+</html>

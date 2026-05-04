@@ -1,0 +1,935 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🪐</text></svg>"
+    />
+    <title>Orbital Tests · Hwa's Physics Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/shared/lab.css" />
+    <style>
+      .tests-page .shell {
+        max-width: 1100px;
+      }
+
+      .tests-page header {
+        display: grid;
+        gap: 14px;
+      }
+
+      .summary-band {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 16px;
+        padding: 22px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        margin-bottom: 22px;
+      }
+
+      .summary-band .summary-text strong {
+        font-family: var(--display);
+        font-size: 1.4rem;
+        letter-spacing: 0.01em;
+      }
+
+      .summary-band .summary-text p {
+        margin: 6px 0 0;
+        color: var(--text-dim);
+        font-size: 0.92rem;
+      }
+
+      .summary-pill {
+        font-family: var(--mono);
+        font-size: 0.95rem;
+        font-weight: 600;
+        padding: 10px 18px;
+        border-radius: 999px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        border: 1px solid transparent;
+      }
+
+      .summary-pill.pending {
+        color: var(--text-dim);
+        background: color-mix(in srgb, var(--text-dim) 12%, transparent);
+        border-color: var(--border);
+      }
+
+      .summary-pill.pass {
+        color: var(--green);
+        background: color-mix(in srgb, var(--green) 14%, transparent);
+        border-color: color-mix(in srgb, var(--green) 50%, transparent);
+      }
+
+      .summary-pill.fail {
+        color: var(--red);
+        background: color-mix(in srgb, var(--red) 14%, transparent);
+        border-color: color-mix(in srgb, var(--red) 50%, transparent);
+      }
+
+      .test-list {
+        display: grid;
+        gap: 14px;
+      }
+
+      .test-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-left: 4px solid var(--border);
+        border-radius: var(--radius);
+        padding: 18px 22px;
+        display: grid;
+        gap: 12px;
+      }
+
+      .test-card.pass {
+        border-left-color: var(--green);
+      }
+
+      .test-card.fail {
+        border-left-color: var(--red);
+      }
+
+      .test-card.info {
+        border-left-color: var(--accent);
+      }
+
+      .test-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+
+      .test-name {
+        font-family: var(--display);
+        font-weight: 600;
+        font-size: 1.05rem;
+      }
+
+      .test-badge {
+        font-family: var(--mono);
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid transparent;
+      }
+
+      .test-badge.pass {
+        color: var(--green);
+        background: color-mix(in srgb, var(--green) 14%, transparent);
+        border-color: color-mix(in srgb, var(--green) 50%, transparent);
+      }
+
+      .test-badge.fail {
+        color: var(--red);
+        background: color-mix(in srgb, var(--red) 16%, transparent);
+        border-color: color-mix(in srgb, var(--red) 55%, transparent);
+      }
+
+      .test-badge.info {
+        color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 14%, transparent);
+        border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+      }
+
+      .test-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px 22px;
+        font-family: var(--mono);
+        font-size: 0.86rem;
+      }
+
+      .test-grid div {
+        display: grid;
+        gap: 4px;
+      }
+
+      .test-grid .label {
+        color: var(--text-dim);
+        font-size: 0.74rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .test-grid .value {
+        color: var(--text);
+      }
+
+      .test-grid .value.fail {
+        color: var(--red);
+      }
+
+      .test-grid .value.pass {
+        color: var(--green);
+      }
+
+      .test-note {
+        margin: 0;
+        color: var(--text-dim);
+        font-size: 0.88rem;
+        line-height: 1.55;
+      }
+
+      .test-section-title {
+        font-family: var(--display);
+        font-size: 1.1rem;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        margin: 26px 0 10px;
+        color: var(--text);
+      }
+
+      .test-section-title:first-of-type {
+        margin-top: 0;
+      }
+
+      .test-section-title small {
+        font-family: var(--mono);
+        font-weight: 500;
+        font-size: 0.78rem;
+        color: var(--text-dim);
+        margin-left: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+    </style>
+    <script>
+      (function () {
+        var stored = localStorage.getItem("physicsLabTheme");
+        document.documentElement.dataset.theme = stored === "light" ? "light" : "dark";
+      })();
+    </script>
+  </head>
+  <body class="sim-page tests-page">
+    <button
+      class="theme-toggle"
+      id="themeToggle"
+      type="button"
+      aria-label="Toggle color theme"
+      title="Toggle color theme"
+    >
+      <span class="theme-icon theme-icon-dark" aria-hidden="true">◑</span>
+      <span class="theme-icon theme-icon-light" aria-hidden="true">◐</span>
+    </button>
+
+    <main class="shell sim-container">
+      <a class="back-link" href="/">← Back to Lab</a>
+      <header>
+        <div class="eyebrow">V3 · Stage 3a · physics module tests</div>
+        <h1>Orbital Mechanics Tests</h1>
+        <p class="intro">
+          Browser-runnable tests for <code>/shared/orbital.js</code>. Each card
+          shows the spec target, the computed value, and the relative margin.
+          All required tests must be green before Stage 3b begins. Informational
+          tests below the gating set are useful sanity checks but don't gate.
+        </p>
+      </header>
+
+      <section class="summary-band" aria-live="polite">
+        <div class="summary-text">
+          <strong id="summaryHeadline">Running tests…</strong>
+          <p id="summaryDetail">Each gating test must pass within its spec margin.</p>
+        </div>
+        <div class="summary-pill pending" id="summaryPill">Pending</div>
+      </section>
+
+      <h2 class="test-section-title" id="gating-title">
+        Gating tests <small>must all pass to advance to Stage 3b</small>
+      </h2>
+      <div class="test-list" id="gatingList"></div>
+
+      <h2 class="test-section-title">
+        Informational <small>extra checks, do not gate</small>
+      </h2>
+      <div class="test-list" id="infoList"></div>
+    </main>
+
+    <footer class="site-credits">
+      Built by Hwa Lee ·
+      <a href="#" rel="noopener" aria-label="GitHub (link coming soon)">GitHub</a>
+    </footer>
+
+    <script type="module">
+      import {
+        CONSTANTS,
+        propagate,
+        hohmannTransfer,
+        closedOrbitDt,
+        sphereOfInfluence,
+        visViva,
+        escapeBurn,
+        transformFrame,
+        hohmannPhaseAngle,
+        returnWaitTime,
+        returnAngleMiss
+      } from "/shared/orbital.js";
+
+      // ----- tiny harness -------------------------------------------------
+      const gatingResults = [];
+      const infoResults = [];
+
+      function fmt(v, digits = 4) {
+        if (typeof v !== "number" || !isFinite(v)) return String(v);
+        const abs = Math.abs(v);
+        if (abs !== 0 && (abs < 1e-3 || abs >= 1e6)) {
+          return v.toExponential(digits);
+        }
+        return v.toFixed(digits);
+      }
+
+      function withinFraction(actual, expected, tolerance) {
+        if (expected === 0) return Math.abs(actual) <= tolerance;
+        return Math.abs(actual - expected) / Math.abs(expected) <= tolerance;
+      }
+
+      function relativeError(actual, expected) {
+        if (expected === 0) return Math.abs(actual);
+        return Math.abs(actual - expected) / Math.abs(expected);
+      }
+
+      function assertThrows(name, fn, ExpectedError) {
+        try {
+          fn();
+        } catch (err) {
+          if (err instanceof ExpectedError) return [name, "threw"];
+          return [name, `wrong error: ${err && err.name || err}`];
+        }
+        return [name, "did not throw"];
+      }
+
+      function record(target, name, fields, pass, note, options = {}) {
+        const arr = target === "info" ? infoResults : gatingResults;
+        arr.push({ name, fields, pass, note, kind: options.kind || (target === "info" ? "info" : "gate") });
+      }
+
+      function runGating() {
+        // 1. LEO orbital period at radius 6,778 km, μ_Earth = 398,600.
+        {
+          const a = 6778;
+          const mu = CONSTANTS.earth.mu;
+          const period = 2 * Math.PI * Math.sqrt((a * a * a) / mu);
+          const expected = 5553.46;
+          const margin = 0.01;
+          const err = relativeError(period, expected);
+          const pass = err <= margin;
+          record("gate", "LEO orbital period (r = 6,778 km)", [
+            ["Expected", `${fmt(expected, 1)} s`],
+            ["Actual", `${fmt(period, 1)} s`],
+            ["Tolerance", `± 1%`],
+            ["Margin used", `${(err * 100).toFixed(2)}%`]
+          ], pass, "T = 2π · √(a³/μ).");
+        }
+
+        // 2. Hohmann Earth → Mars transfer time.
+        {
+          const r1 = CONSTANTS.earth.orbitRadius;
+          const r2 = CONSTANTS.mars.orbitRadius;
+          const mu = CONSTANTS.sun.mu;
+          const h = hohmannTransfer(r1, r2, mu);
+          const days = h.transferTime / 86400;
+          const expected = 259;
+          const margin = 0.01;
+          const err = relativeError(days, expected);
+          const pass = err <= margin;
+          record("gate", "Hohmann Earth → Mars · travel time", [
+            ["Expected", `${expected} days`],
+            ["Actual", `${days.toFixed(2)} days`],
+            ["Tolerance", `± 1%`],
+            ["Margin used", `${(err * 100).toFixed(2)}%`]
+          ], pass, "Transfer time = π · √(a_t³/μ☉) for the half-ellipse outbound arc.");
+        }
+
+        // 3. Hohmann Earth → Mars · heliocentric Δv₁ + Δv₂.
+        {
+          const h = hohmannTransfer(
+            CONSTANTS.earth.orbitRadius,
+            CONSTANTS.mars.orbitRadius,
+            CONSTANTS.sun.mu
+          );
+          const total = h.dv1 + h.dv2;
+          const expected = 5.6;
+          const margin = 0.05;
+          const err = relativeError(total, expected);
+          const pass = err <= margin;
+          record("gate", "Hohmann Earth → Mars · total Δv (heliocentric)", [
+            ["Expected", `${expected} km/s`],
+            ["Actual", `${total.toFixed(3)} km/s`],
+            ["Δv₁ (depart)", `${h.dv1.toFixed(3)} km/s`],
+            ["Δv₂ (arrive)", `${h.dv2.toFixed(3)} km/s`],
+            ["Tolerance", `± 5%`],
+            ["Margin used", `${(err * 100).toFixed(2)}%`]
+          ], pass,
+          "Heliocentric portion only — sum of dv1 + dv2 from hohmannTransfer. " +
+          "Comparable to the 5.6 km/s LEO-to-low-Mars-orbit figure by coincidence; " +
+          "the full LEO-to-LEO calc using escapeBurn is shown in the informational section.");
+        }
+
+        // 4. Earth SOI radius (Laplace).
+        {
+          const r = sphereOfInfluence(
+            CONSTANTS.earth.mu,
+            CONSTANTS.sun.mu,
+            CONSTANTS.earth.orbitRadius
+          );
+          const expected = 924000;
+          const margin = 0.05;
+          const err = relativeError(r, expected);
+          const pass = err <= margin;
+          record("gate", "Sphere of influence · Earth", [
+            ["Expected", `${expected.toLocaleString()} km`],
+            ["Actual", `${Math.round(r).toLocaleString()} km`],
+            ["Tolerance", `± 5%`],
+            ["Margin used", `${(err * 100).toFixed(2)}%`]
+          ], pass, "r_SOI = R · (m_planet / m_central)^(2/5); μ ratio is equivalent to mass ratio.");
+        }
+
+        // 5. Mars SOI radius.
+        {
+          const r = sphereOfInfluence(
+            CONSTANTS.mars.mu,
+            CONSTANTS.sun.mu,
+            CONSTANTS.mars.orbitRadius
+          );
+          const expected = 577000;
+          const margin = 0.05;
+          const err = relativeError(r, expected);
+          const pass = err <= margin;
+          record("gate", "Sphere of influence · Mars", [
+            ["Expected", `${expected.toLocaleString()} km`],
+            ["Actual", `${Math.round(r).toLocaleString()} km`],
+            ["Tolerance", `± 5%`],
+            ["Margin used", `${(err * 100).toFixed(2)}%`]
+          ], pass, "Same Laplace formula, applied to Mars' parameters.");
+        }
+
+        // 6. Trajectory closure: circular orbit, one period, dt = T/1000.
+        {
+          const a = CONSTANTS.earth.radius + 400;       // LEO
+          const mu = CONSTANTS.earth.mu;
+          const v_circ = Math.sqrt(mu / a);
+          const T = 2 * Math.PI * Math.sqrt((a * a * a) / mu);
+          const N = 1000;
+          const dt = T / N;
+          let s = { r: [a, 0], v: [0, v_circ] };
+          for (let i = 0; i < N; i++) s = propagate(s, mu, dt);
+          const dx = s.r[0] - a;
+          const dy = s.r[1] - 0;
+          const drift = Math.sqrt(dx * dx + dy * dy);
+          const fraction = drift / a;
+          const margin = 0.001;
+          const pass = fraction <= margin;
+          record("gate", "Trajectory closure · 1 period at dt = T/1000", [
+            ["Start position", `(${fmt(a)}, 0) km`],
+            ["End position", `(${fmt(s.r[0])}, ${fmt(s.r[1])}) km`],
+            ["Drift", `${fmt(drift)} km`],
+            ["Drift fraction", `${(fraction * 100).toFixed(4)}%`],
+            ["Tolerance", `< 0.1%`]
+          ], pass, "Symplectic Euler is bounded but not exactly closing; small dt keeps it tight.");
+        }
+
+        // 7. Energy conservation: drift over one period at dt = T/1000.
+        {
+          const a = CONSTANTS.earth.radius + 400;
+          const mu = CONSTANTS.earth.mu;
+          const v_circ = Math.sqrt(mu / a);
+          const T = 2 * Math.PI * Math.sqrt((a * a * a) / mu);
+          const N = 1000;
+          const dt = T / N;
+          let s = { r: [a, 0], v: [0, v_circ] };
+          const energyOf = (st) => {
+            const speed2 = st.v[0] * st.v[0] + st.v[1] * st.v[1];
+            const r = Math.sqrt(st.r[0] * st.r[0] + st.r[1] * st.r[1]);
+            return 0.5 * speed2 - mu / r;
+          };
+          const E0 = energyOf(s);
+          let maxDrift = 0;
+          for (let i = 0; i < N; i++) {
+            s = propagate(s, mu, dt);
+            const E = energyOf(s);
+            const f = Math.abs((E - E0) / E0);
+            if (f > maxDrift) maxDrift = f;
+          }
+          const margin = 0.005;
+          const pass = maxDrift <= margin;
+          record("gate", "Energy conservation · 1 period at dt = T/1000", [
+            ["Initial E", `${fmt(E0)} km²/s²`],
+            ["Max drift", `${(maxDrift * 100).toFixed(4)}%`],
+            ["Tolerance", `< 0.5%`]
+          ], pass, "Symplectic schemes oscillate around the true energy; this caps the oscillation amplitude.");
+        }
+
+        // 8. Frame round-trip A → B → A: relative error < 1e-12.
+        {
+          const original = { r: [1.496e8, 12345.6], v: [-7.123, 29.78] };
+          const frameVel = [3.5, -1.2];
+          const stepped = transformFrame(original, "A", "B", frameVel);
+          const back = transformFrame(stepped, "B", "A", [-frameVel[0], -frameVel[1]]);
+          const dr = Math.hypot(back.r[0] - original.r[0], back.r[1] - original.r[1]);
+          const dv = Math.hypot(back.v[0] - original.v[0], back.v[1] - original.v[1]);
+          const refMag = Math.hypot(original.v[0], original.v[1]);
+          const relErr = (dr + dv) / (Math.hypot(original.r[0], original.r[1]) + refMag);
+          const margin = 1e-12;
+          const pass = relErr <= margin;
+          record("gate", "Frame transformation round-trip (A → B → A)", [
+            ["Position drift", `${fmt(dr, 3)} km`],
+            ["Velocity drift", `${fmt(dv, 3)} km/s`],
+            ["Relative error", `${relErr.toExponential(2)}`],
+            ["Tolerance", `< 1e-12`]
+          ], pass, "Pure arithmetic shift — should be near IEEE 754 round-off (~1e-15).");
+        }
+
+        // 9. Frame transform one-way expectation, with position and velocity checked separately.
+        {
+          const original = { r: [1000, -2000], v: [12, -4] };
+          const frameVel = [3, 7];
+          const shifted = transformFrame(original, "A", "B", frameVel);
+          const dr = Math.hypot(shifted.r[0] - original.r[0], shifted.r[1] - original.r[1]);
+          const dv = Math.hypot(shifted.v[0] - 9, shifted.v[1] - (-11));
+          const pass = dr <= 1e-12 && dv <= 1e-12;
+          record("gate", "Frame transformation · one-way convention", [
+            ["Expected r", `(1000, -2000) km`],
+            ["Actual r", `(${fmt(shifted.r[0])}, ${fmt(shifted.r[1])}) km`],
+            ["Expected v", `(9, -11) km/s`],
+            ["Actual v", `(${fmt(shifted.v[0])}, ${fmt(shifted.v[1])}) km/s`],
+            ["Tolerance", `< 1e-12 per vector`]
+          ], pass, "fromFrame → toFrame subtracts frameVelocity from state velocity; position is unchanged.");
+        }
+
+        // 10. closedOrbitDt policy: low-e floor and high-e scaling.
+        {
+          const mars = hohmannTransfer(
+            CONSTANTS.earth.orbitRadius,
+            CONSTANTS.mars.orbitRadius,
+            CONSTANTS.sun.mu
+          );
+          const marsProfile = closedOrbitDt(mars.periapsis, mars.apoapsis, CONSTANTS.sun.mu);
+          const moonRp = CONSTANTS.earth.radius + 400;
+          const moonRa = CONSTANTS.moon.orbitRadius;
+          const moonProfile = closedOrbitDt(moonRp, moonRa, CONSTANTS.earth.mu);
+          const moonEInRange = moonProfile.eccentricity >= 0.964 && moonProfile.eccentricity <= 0.966;
+          const moonStepsInRange = moonProfile.steps >= 130000 && moonProfile.steps <= 140000;
+          const pass = marsProfile.steps === 1000 && moonEInRange && moonStepsInRange;
+          record("gate", "closedOrbitDt policy · low-e floor and high-e scaling", [
+            ["Mars Hohmann e", `${marsProfile.eccentricity.toFixed(4)}`],
+            ["Mars steps", `${marsProfile.steps.toLocaleString()}`],
+            ["Moon transfer e", `${moonProfile.eccentricity.toFixed(4)}`],
+            ["Moon steps", `${moonProfile.steps.toLocaleString()}`],
+            ["Moon anchor", `e≈0.965; 130,000–140,000 steps`]
+          ], pass, "Low-e cases keep the 1000-step floor; Moon-scale high-e transfers stay in the expected high-resolution band.");
+        }
+
+        // 11. High-eccentricity half-transfer: Earth-Moon-like ellipse.
+        {
+          const rp = CONSTANTS.earth.radius + 400;
+          const ra = CONSTANTS.moon.orbitRadius;
+          const mu = CONSTANTS.earth.mu;
+          const profile = closedOrbitDt(rp, ra, mu);
+          const vPeriapsis = visViva(rp, profile.semiMajorAxis, mu);
+          const targetTime = profile.period / 2;
+          let elapsed = 0;
+          let s = { r: [rp, 0], v: [0, vPeriapsis] };
+          while (elapsed < targetTime - 1e-9) {
+            const dt = Math.min(profile.dt, targetTime - elapsed);
+            s = propagate(s, mu, dt);
+            elapsed += dt;
+          }
+          const rFinal = Math.hypot(s.r[0], s.r[1]);
+          const radiusErr = relativeError(rFinal, ra);
+          const angleDeg = Math.atan2(s.r[1], s.r[0]) * 180 / Math.PI;
+          const angleMiss = Math.abs(180 - Math.abs(angleDeg));
+          const pass = radiusErr <= 0.002 && angleMiss <= 0.5;
+          record("gate", "High-eccentricity half-transfer · Moon-scale apoapsis", [
+            ["Eccentricity", `${profile.eccentricity.toFixed(4)}`],
+            ["Steps / period", `${profile.steps.toLocaleString()}`],
+            ["dt", `${profile.dt.toFixed(2)} s`],
+            ["Expected apoapsis", `${ra.toLocaleString()} km`],
+            ["Actual radius", `${Math.round(rFinal).toLocaleString()} km`],
+            ["Radius error", `${(radiusErr * 100).toFixed(4)}%`],
+            ["Angle miss", `${angleMiss.toFixed(3)}°`]
+          ], pass, "closedOrbitDt() keeps periapsis sampling fine enough for a Moon-like Hohmann transfer.");
+        }
+
+        // 12. Angular momentum conservation for an eccentric two-body orbit.
+        {
+          const rp = 7000;
+          const ra = 13000;
+          const mu = CONSTANTS.earth.mu;
+          const profile = closedOrbitDt(rp, ra, mu);
+          const vPeriapsis = visViva(rp, profile.semiMajorAxis, mu);
+          let s = { r: [rp, 0], v: [0, vPeriapsis] };
+          const h0 = s.r[0] * s.v[1] - s.r[1] * s.v[0];
+          let maxDrift = 0;
+          for (let i = 0; i < profile.steps; i++) {
+            s = propagate(s, mu, profile.dt);
+            const h = s.r[0] * s.v[1] - s.r[1] * s.v[0];
+            maxDrift = Math.max(maxDrift, Math.abs((h - h0) / h0));
+          }
+          const pass = maxDrift <= 1e-12;
+          record("gate", "Angular momentum conservation · eccentric orbit", [
+            ["Periapsis", `${rp.toLocaleString()} km`],
+            ["Apoapsis", `${ra.toLocaleString()} km`],
+            ["Max drift", `${maxDrift.toExponential(2)}`],
+            ["Tolerance", `< 1e-12`]
+          ], pass, "Central-force Euler-Cromer preserves angular momentum to round-off because acceleration is radial.");
+        }
+
+        // 13. Kepler's 3rd law from propagated circular orbits.
+        {
+          const mu = CONSTANTS.earth.mu;
+          const radii = [6778, 10000, 42164];
+          const ratios = radii.map((a) => {
+            const vCirc = Math.sqrt(mu / a);
+            const profile = closedOrbitDt(a, a, mu);
+            let elapsed = 0;
+            let s = { r: [-a, 0], v: [0, -vCirc] };
+            let prevY = s.r[1];
+            let prevElapsed = elapsed;
+            let crossingTime = null;
+
+            for (let i = 0; i < profile.steps; i++) {
+              prevY = s.r[1];
+              prevElapsed = elapsed;
+              s = propagate(s, mu, profile.dt);
+              elapsed += profile.dt;
+              if (prevY < 0 && s.r[1] >= 0) {
+                const fraction = -prevY / (s.r[1] - prevY);
+                crossingTime = prevElapsed + fraction * profile.dt;
+                break;
+              }
+            }
+
+            if (crossingTime === null) return NaN;
+            const measuredPeriod = 2 * crossingTime;
+            return {
+              radius: a,
+              measuredPeriod,
+              ratio: (measuredPeriod * measuredPeriod) / (a * a * a)
+            };
+          });
+          const valid = ratios.every((r) => Number.isFinite(r.ratio));
+          const meanRatio = ratios.reduce((sum, r) => sum + r.ratio, 0) / ratios.length;
+          const maxSpread = Math.max(...ratios.map((r) => Math.abs((r.ratio - meanRatio) / meanRatio)));
+          const pass = valid && maxSpread <= 0.005;
+          record("gate", "Kepler's 3rd law · propagated circular orbits", [
+            ["Radii", radii.map((r) => `${r.toLocaleString()} km`).join(", ")],
+            ["Measured periods", ratios.map((r) => `${Math.round(r.measuredPeriod).toLocaleString()} s`).join(", ")],
+            ["Mean T²/a³", `${meanRatio.toExponential(6)}`],
+            ["Max spread", `${(maxSpread * 100).toFixed(3)}%`],
+            ["Tolerance", `< 0.5%`]
+          ], pass, "Propagates each circular orbit to the first negative-to-positive y=0 crossing, doubles that half-orbit time, then checks T²/a³ consistency.");
+        }
+
+        // 14. escapeBurn with zero v∞ is the parabolic escape burn from circular orbit.
+        {
+          const rLeo = CONSTANTS.earth.radius + 400;
+          const dv = escapeBurn(rLeo, 0, CONSTANTS.earth.mu);
+          const expected = 3.176;
+          const err = relativeError(dv, expected);
+          const pass = err <= 0.001;
+          record("gate", "escapeBurn · zero v∞ parabolic escape", [
+            ["Parking radius", `${rLeo.toLocaleString()} km`],
+            ["v∞", `0 km/s`],
+            ["Expected Δv", `≈ ${expected.toFixed(3)} km/s`],
+            ["Actual Δv", `${dv.toFixed(3)} km/s`],
+            ["Margin used", `${(err * 100).toFixed(3)}%`]
+          ], pass, "v∞ = 0 means a parabolic escape trajectory, not no burn; circular LEO still needs escape energy.");
+        }
+
+        // 15. escapeBurn Earth hyperbolic departure magnitude sanity check.
+        {
+          const rLeo = CONSTANTS.earth.radius + 400;
+          const vInfinity = 2.94;
+          const dv = escapeBurn(rLeo, vInfinity, CONSTANTS.earth.mu);
+          const expected = 3.568;
+          const err = relativeError(dv, expected);
+          const pass = err <= 0.002;
+          record("gate", "escapeBurn · Earth hyperbolic v∞ sanity", [
+            ["Parking radius", `${rLeo.toLocaleString()} km`],
+            ["v∞", `${vInfinity.toFixed(2)} km/s`],
+            ["Expected Δv", `≈ ${expected.toFixed(3)} km/s`],
+            ["Actual Δv", `${dv.toFixed(3)} km/s`],
+            ["Margin used", `${(err * 100).toFixed(3)}%`]
+          ], pass, "A 2.94 km/s hyperbolic excess from LEO is an Earth-escape case and should require about 3.57 km/s.");
+        }
+
+        // 16. Input validation guards reject physically invalid inputs.
+        {
+          const cases = [
+            assertThrows("propagate r=0", () => propagate({ r: [0, 0], v: [0, 1] }, CONSTANTS.earth.mu, 1), RangeError),
+            assertThrows("propagate mu=0", () => propagate({ r: [1, 0], v: [0, 1] }, 0, 1), RangeError),
+            assertThrows("propagate bad vector", () => propagate({ r: [1], v: [0, 1] }, CONSTANTS.earth.mu, 1), TypeError),
+            assertThrows("hohmann negative r", () => hohmannTransfer(-1, 2, CONSTANTS.sun.mu), RangeError),
+            assertThrows("visViva NaN", () => visViva(NaN, 1, CONSTANTS.earth.mu), TypeError),
+            assertThrows("escapeBurn negative v∞", () => escapeBurn(6778, -1, CONSTANTS.earth.mu), RangeError),
+            assertThrows("closedOrbitDt apo < peri", () => closedOrbitDt(10000, 7000, CONSTANTS.earth.mu), RangeError),
+            assertThrows("returnWaitTime unknown body", () => returnWaitTime("earth", "pluto", 0), RangeError),
+            assertThrows("returnAngleMiss zero vector", () => returnAngleMiss({ r: [0, 0], v: [0, 0] }, { r: [1, 0], v: [0, 0] }), RangeError)
+          ];
+          const pass = cases.every(([, result]) => result === "threw");
+          record("gate", "Input validation guards", cases, pass,
+            "Invalid radii, μ, NaN, vector shape, unknown bodies, and undefined angles fail loudly instead of returning NaN/Infinity.");
+        }
+      }
+
+      function runInfo() {
+        // I-1. LEO-to-low-Mars-orbit Δv via escapeBurn (full LEO-to-LEO budget).
+        {
+          const h = hohmannTransfer(
+            CONSTANTS.earth.orbitRadius,
+            CONSTANTS.mars.orbitRadius,
+            CONSTANTS.sun.mu
+          );
+          const r_LEO_earth = CONSTANTS.earth.radius + 400;
+          const r_LEO_mars  = CONSTANTS.mars.radius  + 400;
+          const dvDepart = escapeBurn(r_LEO_earth, h.dv1, CONSTANTS.earth.mu);
+          const dvCapture = escapeBurn(r_LEO_mars, h.dv2, CONSTANTS.mars.mu);
+          const total = dvDepart + dvCapture;
+          const expected = 5.6;
+          const err = relativeError(total, expected);
+          const pass = err <= 0.05;
+          record("info", "Full LEO ⇄ low-Mars-orbit Δv (via escapeBurn)", [
+            ["TLI burn", `${dvDepart.toFixed(3)} km/s`],
+            ["Mars capture", `${dvCapture.toFixed(3)} km/s`],
+            ["Total", `${total.toFixed(3)} km/s`],
+            ["Spec reference", `~5.6 km/s (3.6 + 2.1)`],
+            ["Margin vs ref", `${(err * 100).toFixed(2)}%`]
+          ], pass,
+          "Treats hohmannTransfer's dv₁/dv₂ as v_∞ at each end and adds the LEO-to-hyperbolic burn. " +
+          "Reproduces the canonical 3.6 km/s + 2.1 km/s split.",
+          { kind: "info" });
+        }
+
+        // I-2. Hohmann phase angles match the spec figures (44.3° Mars, 54° Venus).
+        {
+          const aMars = hohmannPhaseAngle(
+            CONSTANTS.earth.orbitRadius,
+            CONSTANTS.mars.orbitRadius,
+            CONSTANTS.sun.mu
+          );
+          const aVenus = hohmannPhaseAngle(
+            CONSTANTS.earth.orbitRadius,
+            CONSTANTS.venus.orbitRadius,
+            CONSTANTS.sun.mu
+          );
+          const aMarsDeg = (aMars * 180) / Math.PI;
+          const aVenusDeg = (aVenus * 180) / Math.PI;
+          const okMars = Math.abs(aMarsDeg - 44.3) < 0.5;
+          const okVenus = Math.abs(aVenusDeg - (-54.0)) < 0.5;
+          const pass = okMars && okVenus;
+          record("info", "Optimal-launch-window phase angles", [
+            ["Mars (expected)", `+44.3° (lead)`],
+            ["Mars (computed)", `${aMarsDeg.toFixed(2)}°`],
+            ["Venus (expected)", `−54.0° (lag)`],
+            ["Venus (computed)", `${aVenusDeg.toFixed(2)}°`]
+          ], pass, "α = π − ω_target · T_transfer. Sign convention: positive = target leads, negative = lags.",
+          { kind: "info" });
+        }
+
+        // I-3. Mars synodic return-window wait — should land in the 400–500 day band.
+        {
+          const h = hohmannTransfer(
+            CONSTANTS.earth.orbitRadius,
+            CONSTANTS.mars.orbitRadius,
+            CONSTANTS.sun.mu
+          );
+          const t_arrival = h.transferTime;
+          const wait = returnWaitTime("earth", "mars", t_arrival);
+          const days = wait / 86400;
+          const pass = days >= 400 && days <= 550;
+          record("info", "Mars return-window wait at target", [
+            ["Wait (computed)", `${days.toFixed(1)} days`],
+            ["Spec band", `400–500 days (real-mission synodic)`],
+            ["Round trip", `${(2 * t_arrival / 86400 + days).toFixed(1)} days total`]
+          ], pass, "What makes a Mars round trip ~2.5 years. Closure-condition solve, not iteration.",
+          { kind: "info" });
+        }
+
+        // I-4. Hohmann Earth → Venus travel time and Δv (sanity vs spec figures).
+        {
+          const h = hohmannTransfer(
+            CONSTANTS.earth.orbitRadius,
+            CONSTANTS.venus.orbitRadius,
+            CONSTANTS.sun.mu
+          );
+          const days = h.transferTime / 86400;
+          const total = h.dv1 + h.dv2;
+          const okTime = Math.abs(days - 146) / 146 <= 0.05;
+          const okDv = Math.abs(total - 5.2) / 5.2 <= 0.30;
+          const pass = okTime;  // travel time gates; Δv is heliocentric-only and lower than 5.2
+          record("info", "Hohmann Earth → Venus · travel time and Δv", [
+            ["Travel time (spec)", `~146 days`],
+            ["Travel time (calc)", `${days.toFixed(2)} days`],
+            ["Δv (heliocentric)", `${total.toFixed(3)} km/s`],
+            ["Spec total Δv (LEO→LEO)", `~5.2 km/s`],
+            ["Note", okDv ? "within 30%" : "differs > 30%"]
+          ], pass,
+          "Heliocentric Δv (5.23 km/s) and the LEO-to-low-Venus-orbit Δv (5.2 km/s) are coincidentally close; " +
+          "we report both. Travel time is the gating sanity check.",
+          { kind: "info" });
+        }
+
+        // I-5. Vis-viva matches circular speed when r = a.
+        {
+          const a = CONSTANTS.earth.orbitRadius;
+          const mu = CONSTANTS.sun.mu;
+          const v_visviva = visViva(a, a, mu);
+          const v_circ = Math.sqrt(mu / a);
+          const err = relativeError(v_visviva, v_circ);
+          const pass = err < 1e-12;
+          record("info", "vis-viva consistency (r = a → circular speed)", [
+            ["v_circ", `${v_circ.toFixed(4)} km/s`],
+            ["visViva(a, a, μ)", `${v_visviva.toFixed(4)} km/s`],
+            ["Relative error", `${err.toExponential(2)}`]
+          ], pass, "Sanity check: the formula reduces correctly at r = a.",
+          { kind: "info" });
+        }
+
+        // I-6. returnAngleMiss sign convention.
+        {
+          // Earth at +X axis, spacecraft at +20° counter-clockwise of Earth → +20°.
+          const earthState = { r: [1.496e8, 0], v: [0, 0] };
+          const angle = (20 * Math.PI) / 180;
+          const r = 1.496e8;
+          const sc = { r: [r * Math.cos(angle), r * Math.sin(angle)], v: [0, 0] };
+          const miss = returnAngleMiss(sc, earthState);
+          const missDeg = (miss * 180) / Math.PI;
+          const pass = Math.abs(missDeg - 20) < 1e-9;
+          record("info", "returnAngleMiss · sign convention", [
+            ["Setup", "spacecraft +20° CCW of Earth"],
+            ["Computed", `${missDeg.toFixed(6)}°`],
+            ["Convention", "+ = ahead of Earth, − = behind"]
+          ], pass, "Used by Stage 3b's flyby missions to honestly report loose-closure error.",
+          { kind: "info" });
+        }
+      }
+
+      // ----- render -------------------------------------------------------
+      function badge(kind, pass) {
+        if (kind === "info") {
+          return `<span class="test-badge ${pass ? "pass" : "info"}">${pass ? "OK" : "Δ"}</span>`;
+        }
+        return `<span class="test-badge ${pass ? "pass" : "fail"}">${pass ? "PASS" : "FAIL"}</span>`;
+      }
+
+      function renderList(targetId, results) {
+        const root = document.getElementById(targetId);
+        root.innerHTML = "";
+        for (const r of results) {
+          const card = document.createElement("article");
+          const stateClass = r.kind === "info" && r.pass ? "info" : (r.pass ? "pass" : "fail");
+          card.className = `test-card ${stateClass}`;
+          const head = document.createElement("div");
+          head.className = "test-head";
+          head.innerHTML = `<div class="test-name">${r.name}</div>${badge(r.kind, r.pass)}`;
+          card.appendChild(head);
+
+          const grid = document.createElement("div");
+          grid.className = "test-grid";
+          for (const [label, value] of r.fields) {
+            const cell = document.createElement("div");
+            cell.innerHTML =
+              `<span class="label">${label}</span>` +
+              `<span class="value">${value}</span>`;
+            grid.appendChild(cell);
+          }
+          card.appendChild(grid);
+
+          if (r.note) {
+            const note = document.createElement("p");
+            note.className = "test-note";
+            note.textContent = r.note;
+            card.appendChild(note);
+          }
+
+          root.appendChild(card);
+        }
+      }
+
+      function renderSummary() {
+        const passed = gatingResults.filter((r) => r.pass).length;
+        const total = gatingResults.length;
+        const allPass = passed === total;
+        const pill = document.getElementById("summaryPill");
+        pill.textContent = `${passed} / ${total} passing`;
+        pill.classList.remove("pending", "pass", "fail");
+        pill.classList.add(allPass ? "pass" : "fail");
+
+        const headline = document.getElementById("summaryHeadline");
+        const detail = document.getElementById("summaryDetail");
+        if (allPass) {
+          headline.textContent = "All gating tests pass — Stage 3a green-light.";
+          detail.textContent =
+            "Required physics tests are within their spec margins. " +
+            "Informational checks below add extra confidence (phase angles, return wait, sign conventions).";
+        } else {
+          headline.textContent = `${total - passed} gating test${total - passed === 1 ? "" : "s"} failing.`;
+          detail.textContent =
+            "Stage 3b is blocked until every gating card is green. Scroll to the red-bordered cards for details.";
+        }
+      }
+
+      function runAll() {
+        try {
+          runGating();
+        } catch (err) {
+          console.error("Gating test crashed:", err);
+          gatingResults.push({
+            name: "Test harness crashed during gating run",
+            fields: [["Error", String(err && err.message || err)]],
+            pass: false,
+            note: "An exception was thrown while running gating tests. Open the console for the stack trace.",
+            kind: "gate"
+          });
+        }
+        try {
+          runInfo();
+        } catch (err) {
+          console.error("Informational test crashed:", err);
+          infoResults.push({
+            name: "Test harness crashed during informational run",
+            fields: [["Error", String(err && err.message || err)]],
+            pass: false,
+            note: "An exception was thrown while running informational tests. Open the console.",
+            kind: "info"
+          });
+        }
+        renderList("gatingList", gatingResults);
+        renderList("infoList", infoResults);
+        renderSummary();
+      }
+
+      runAll();
+    </script>
+
+    <script>
+      (function () {
+        var btn = document.getElementById("themeToggle");
+        if (!btn) return;
+        btn.addEventListener("click", function () {
+          var cur = document.documentElement.dataset.theme;
+          var next = cur === "light" ? "dark" : "light";
+          document.documentElement.dataset.theme = next;
+          localStorage.setItem("physicsLabTheme", next);
+          window.dispatchEvent(new CustomEvent("themechange", { detail: next }));
+        });
+      })();
+    </script>
+  </body>
+</html>

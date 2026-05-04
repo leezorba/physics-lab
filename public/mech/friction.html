@@ -1,0 +1,1656 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🪐</text></svg>"
+    />
+    <title>Friction Lab · Hwa's Physics Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/shared/lab.css" />
+    <style>
+      .friction-page .shell {
+        max-width: 1400px;
+      }
+
+      .friction-page header {
+        display: grid;
+        gap: 14px;
+      }
+
+      .friction-page .top-grid {
+        grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+        margin-bottom: 22px;
+      }
+      
+      .friction-page .gravity-options {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+      
+      .friction-page .custom-gravity {
+        display: none;
+        grid-template-columns: 1fr auto;
+        gap: 12px;
+        align-items: center;
+      }
+      
+      .friction-page .custom-gravity.visible {
+        display: grid;
+      }
+      
+      .friction-page .tabs {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        margin-bottom: 22px;
+      }
+      
+      .friction-page .workspace {
+        grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+      }
+      
+      .friction-page .sim-stage {
+        overflow: hidden;
+      }
+      
+      .friction-page .sim-hint {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin: 0;
+        border-bottom: 1px solid var(--border);
+        border-radius: var(--radius) var(--radius) 0 0;
+        background: var(--surface-soft);
+        color: var(--text-dim);
+        font-family: var(--mono);
+        font-size: 0.82rem;
+        line-height: 1.55;
+        padding: 12px 14px 12px 18px;
+      }
+
+      .friction-page .sim-hint p {
+        margin: 0;
+        flex: 1;
+        min-width: 0;
+      }
+
+      .friction-page .sim-hint .focus-toggle {
+        position: static;
+        flex: 0 0 auto;
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+      }
+      
+      .friction-page #simCanvas {
+        height: 620px;
+        border-radius: 0;
+      }
+      
+      .friction-page #velocityCanvas {
+        height: 166px;
+        border-top: 1px solid var(--border);
+        border-radius: 0 0 var(--radius) var(--radius);
+      }
+      
+      .friction-page .footer-grid {
+        border-top: 0;
+      }
+      
+      @media (max-width: 980px) {
+        .friction-page #simCanvas {
+          height: 560px;
+        }
+      }
+      
+      @media (max-width: 640px) {
+        .friction-page #simCanvas {
+          height: 470px;
+        }
+      
+        .friction-page #velocityCanvas {
+          height: 150px;
+        }
+      }
+    </style>
+    <script>
+      (function () {
+        var stored = localStorage.getItem("physicsLabTheme");
+        document.documentElement.dataset.theme = stored === "light" ? "light" : "dark";
+      })();
+    </script>
+  </head>
+  <body class="sim-page friction-page">
+    <button
+      class="theme-toggle"
+      id="themeToggle"
+      type="button"
+      aria-label="Toggle color theme"
+      title="Toggle color theme"
+    >
+      <span class="theme-icon theme-icon-dark" aria-hidden="true">◑</span>
+      <span class="theme-icon theme-icon-light" aria-hidden="true">◐</span>
+    </button>
+
+    <main class="shell sim-container">
+      <a class="back-link" href="/">← Back to Lab</a>
+      <header>
+        <div class="eyebrow">Off-world engineering sandbox</div>
+        <h1>Friction Lab</h1>
+        <p class="intro">
+          Explore how static friction, kinetic friction, normal force, and
+          gravity interact in three classic physics setups. The model is
+          intentionally simple so the assumptions stay visible.
+        </p>
+      </header>
+
+      <section class="top-grid" aria-label="Global controls">
+        <div class="control-band">
+          <div class="band-header">
+            <div>
+              <div class="band-title">Gravity Environment</div>
+              <p class="note">
+                Changing gravity recomputes normal force, which changes
+                weight-coupled friction.
+              </p>
+            </div>
+            <div class="status-pill" id="gravityReadout">Earth · 9.81 m/s²</div>
+          </div>
+          <div class="gravity-options" id="gravityOptions">
+            <button
+              class="option-button active"
+              type="button"
+              data-world="earth"
+              data-g="9.81"
+            >
+              <strong>Earth</strong><span>9.81 m/s²</span>
+            </button>
+            <button
+              class="option-button"
+              type="button"
+              data-world="moon"
+              data-g="1.62"
+            >
+              <strong>Moon</strong><span>1.62 m/s²</span>
+            </button>
+            <button
+              class="option-button"
+              type="button"
+              data-world="mars"
+              data-g="3.71"
+            >
+              <strong>Mars</strong><span>3.71 m/s²</span>
+            </button>
+            <button
+              class="option-button"
+              type="button"
+              data-world="custom"
+              data-g="9.81"
+            >
+              <strong>Custom</strong><span>0.1-25 m/s²</span>
+            </button>
+          </div>
+          <div class="custom-gravity" id="customGravityRow">
+            <div class="range-row">
+              <div class="range-label">
+                <label for="customGravity">Custom gravity</label
+                ><output id="customGravityValue">9.81 m/s²</output>
+              </div>
+              <input
+                id="customGravity"
+                type="range"
+                min="0.1"
+                max="25"
+                step="0.01"
+                value="9.81"
+              />
+            </div>
+          </div>
+        </div>
+
+        <aside class="stats-card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Friction Readings</div>
+              <p class="note">
+                Paste coefficient measurements to compute a scatter band.
+              </p>
+            </div>
+            <button
+              class="icon-button"
+              id="statsToggle"
+              type="button"
+              aria-expanded="false"
+              aria-controls="statsBody"
+              title="Toggle stats panel"
+            >
+              +
+            </button>
+          </div>
+          <div class="stats-body" id="statsBody">
+            <textarea id="muSamples" spellcheck="false">
+0.41
+0.43
+0.39
+0.46
+0.42</textarea
+            >
+            <div class="stats-grid">
+              <div class="stat">
+                <span>N</span><strong id="statN">5</strong>
+              </div>
+              <div class="stat">
+                <span>Mean μ</span><strong id="statMean">0.422</strong>
+              </div>
+              <div class="stat">
+                <span>Sample s</span><strong id="statStd">0.026</strong>
+              </div>
+              <div class="stat">
+                <span>μ ± 2s</span><strong id="statBand">0.370-0.474</strong>
+              </div>
+            </div>
+            <p class="note">
+              Engineering design bounds: μ ± 2s is a scatter band, not a
+              confidence interval for the mean. Use μ_min when relying on
+              friction to hold; use μ_max when sizing motors or actuators that
+              must overcome friction.
+            </p>
+          </div>
+        </aside>
+      </section>
+
+      <nav class="tabs" aria-label="Simulation tabs">
+        <button class="tab-button active" type="button" data-tab="sliding">
+          Sliding Block
+        </button>
+        <button class="tab-button" type="button" data-tab="incline">
+          Inclined Plane
+        </button>
+        <button class="tab-button" type="button" data-tab="stick">
+          Stick-Slip
+        </button>
+      </nav>
+
+      <section class="workspace">
+        <div class="sim-stage">
+          <div class="sim-hint">
+            <p id="simHint"></p>
+            <button
+              class="focus-toggle"
+              id="focusToggle"
+              type="button"
+              aria-label="Toggle focus mode"
+              title="Toggle focus mode"
+            >
+              <svg
+                class="focus-icon focus-icon-expand"
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+                <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+                <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+                <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+              </svg>
+              <svg
+                class="focus-icon focus-icon-collapse"
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M8 3v3a2 2 0 0 1-2 2H3" />
+                <path d="M21 8h-3a2 2 0 0 1-2-2V3" />
+                <path d="M3 16h3a2 2 0 0 1 2 2v3" />
+                <path d="M16 21v-3a2 2 0 0 1 2-2h3" />
+              </svg>
+            </button>
+          </div>
+          <canvas
+            id="simCanvas"
+            aria-label="Friction simulation canvas"
+          ></canvas>
+          <canvas
+            id="velocityCanvas"
+            aria-label="Velocity chart canvas"
+          ></canvas>
+        </div>
+
+        <aside class="side-panel">
+          <section class="telemetry-card">
+            <div class="card-header">
+              <div class="card-title" id="telemetryTitle">
+                Sliding Block Telemetry
+              </div>
+              <div class="status-pill" id="statusPill">Stuck</div>
+            </div>
+            <div class="telemetry-grid" id="telemetryGrid"></div>
+          </section>
+
+          <section class="controls-card">
+            <div class="card-header">
+              <div>
+                <div class="card-title" id="controlsTitle">
+                  Sliding Block Controls
+                </div>
+                <p class="note" id="controlsHint">
+                  Increase applied force until static friction gives way.
+                </p>
+              </div>
+              <button
+                class="icon-button"
+                id="resetSim"
+                type="button"
+                title="Reset simulation: return block to start, zero velocities, clear chart"
+              >
+                ↺
+              </button>
+            </div>
+            <div class="control-list" id="controlList"></div>
+          </section>
+        </aside>
+      </section>
+
+      <section class="footer-grid" aria-label="Model notes">
+        <section class="footer-section">
+          <h2>Glossary</h2>
+          <div class="glossary-grid">
+            <div class="glossary-item">
+              <code>F_f</code>
+              <p>
+                Friction force. Static friction grows only as large as needed
+                until its maximum; kinetic friction acts during sliding.
+              </p>
+            </div>
+            <div class="glossary-item">
+              <code>F_n</code>
+              <p>
+                Normal force, perpendicular to the contact surface. On a level
+                surface in this toy model, <code>F_n = m·g</code>.
+              </p>
+            </div>
+            <div class="glossary-item">
+              <code>μ_s</code>
+              <p>
+                Static coefficient of friction, used to decide when a resting
+                object starts moving.
+              </p>
+            </div>
+            <div class="glossary-item">
+              <code>μ_k</code>
+              <p>
+                Kinetic coefficient of friction, used after sliding begins.
+                Usually lower than <code>μ_s</code>.
+              </p>
+            </div>
+            <div class="glossary-item">
+              <code>θ</code>
+              <p>Ramp angle for the inclined plane.</p>
+            </div>
+            <div class="glossary-item">
+              <code>N</code>
+              <p>
+                Number of measured coefficient readings pasted into the stats
+                panel.
+              </p>
+            </div>
+            <div class="glossary-item">
+              <code>s</code>
+              <p>
+                Sample standard deviation, computed with Bessel's correction
+                using <code>n - 1</code>.
+              </p>
+            </div>
+            <div class="glossary-item">
+              <code>k</code>
+              <p>
+                Spring constant in the stick-slip tab. A stiffer spring builds
+                force faster.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section class="footer-section">
+          <h2>Core Equations</h2>
+          <div class="equation-grid">
+            <div class="equation">
+              <code>F_f = μ · F_n</code>
+              <p>
+                Coulomb friction: friction scales with coefficient and normal
+                force.
+              </p>
+            </div>
+            <div class="equation">
+              <code>s = sqrt(Σ(x_i - x̄)² / (n - 1))</code>
+              <p>Sample standard deviation with Bessel's correction.</p>
+            </div>
+            <div class="equation">
+              <code>μ_min = μ̄ - 2s, μ_max = μ̄ + 2s</code>
+              <p>
+                Engineering scatter band. This is not a confidence interval for
+                the mean.
+              </p>
+            </div>
+            <div class="equation">
+              <code>Δμ = μ_s - μ_k</code>
+              <p>
+                Stick-slip becomes more pronounced as the static-to-kinetic gap
+                grows.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section class="footer-section">
+          <h2>Why This Matters Off-Earth</h2>
+          <ul>
+            <li>
+              Lunar and Martian dust are practical machinery problems because
+              abrasive particles can invade seals, joints, wheels, and contact
+              surfaces.
+            </li>
+            <li>
+              Weight-coupled friction, such as tire traction or gravity-pad
+              anchors, scales with <code>F_n = m·g</code>. The same vehicle can
+              have very different traction margin on the Moon, Mars, and Earth.
+            </li>
+            <li>
+              Mechanically clamped friction, such as a disc brake caliper or
+              vise, is different: clamp force comes from the mechanism, not the
+              vehicle's weight.
+            </li>
+            <li>
+              Low-pressure or clean-surface environments can increase static
+              friction in some contacts. The toggle in this app is qualitative,
+              not a validated Mars rover failure model — and Mars itself is not
+              hard vacuum, with surface pressure around 0.6% of Earth's.
+            </li>
+          </ul>
+        </section>
+
+        <section class="footer-section">
+          <h2>What This Does Not Capture</h2>
+          <p>
+            Coulomb friction is empirical, not fundamental. Real contact
+            behavior depends on material pairing, temperature, surface
+            roughness, contamination, wear, lubrication, contact geometry,
+            loading history, and sliding speed.
+          </p>
+          <p>
+            The stick-slip tab uses a sudden <code>μ_s</code> to
+            <code>μ_k</code> switch. Real transitions are smoother, and real
+            systems can include compliance, damping, deformation, and acoustic
+            vibration that are outside this model.
+          </p>
+          <p>
+            The <code>μ ± 2s</code> readout in the stats panel is a scatter or
+            tolerance band — it estimates where ~95% of individual μ readings
+            fall under a normality assumption. It is <em>not</em> a 95%
+            confidence interval for the mean (that would be
+            <code>μ̄ ± t·s/√n</code> and is much narrower for large n). For
+            design conservatism you usually want the scatter band, but the
+            distinction matters when reporting numbers.
+          </p>
+        </section>
+      </section>
+    </main>
+
+    <footer class="site-credits">
+      Built by Hwa Lee ·
+      <a href="#" rel="noopener" aria-label="GitHub (link coming soon)">GitHub</a>
+    </footer>
+
+    <script>
+      const canvas = document.getElementById("simCanvas");
+      const chartCanvas = document.getElementById("velocityCanvas");
+      const ctx = canvas.getContext("2d");
+      const chartCtx = chartCanvas.getContext("2d");
+
+      // Theme-aware canvas colors. Read from CSS custom properties so a
+      // single :root[data-theme="light"] override flips both DOM and canvas.
+      let theme = readTheme();
+      function readTheme() {
+        const cs = getComputedStyle(document.documentElement);
+        const get = (name) => cs.getPropertyValue(name).trim();
+        return {
+          bg: get("--canvas-bg"),
+          grid: get("--canvas-grid"),
+          text: get("--canvas-text"),
+          textDim: get("--canvas-text-dim"),
+          chartBg: get("--canvas-chart-bg"),
+          groundLine: get("--canvas-ground-line"),
+          groundTint: get("--canvas-ground-tint"),
+          rule: get("--canvas-rule"),
+          panelBg: get("--canvas-panel-bg"),
+          panelBorder: get("--canvas-panel-border"),
+          red: get("--red"),
+        };
+      }
+      window.addEventListener("themechange", () => {
+        theme = readTheme();
+      });
+
+      const state = {
+        tab: "sliding",
+        gravity: 9.81,
+        gravityName: "Earth",
+        lastTime: performance.now(),
+        sliding: {
+          force: 0,
+          mass: 25,
+          muS: 0.45,
+          muK: 0.32,
+          x: 0,
+          v: 0,
+          status: "stuck",
+        },
+        incline: {
+          angle: 18,
+          mass: 25,
+          muS: 0.45,
+          muK: 0.32,
+          s: 0.92,
+          v: 0,
+          status: "stuck",
+        },
+        stick: {
+          k: 200,
+          driveVelocity: 0.12,
+          mass: 25,
+          muS: 0.55,
+          muK: 0.35,
+          stictionBoost: false,
+          xDrive: 0.18,
+          xBlock: 0.04,
+          vBlock: 0,
+          mode: "stick",
+          slipTime: 0,
+          elapsed: 0,
+          visualCamera: 0,
+          chart: [],
+        },
+      };
+
+      const defaults = {
+        sliding: {
+          force: 0,
+          mass: 25,
+          muS: 0.45,
+          muK: 0.32,
+          x: 0,
+          v: 0,
+          status: "stuck",
+        },
+        incline: {
+          angle: 18,
+          mass: 25,
+          muS: 0.45,
+          muK: 0.32,
+          s: 0.92,
+          v: 0,
+          status: "stuck",
+        },
+        stick: {
+          k: 200,
+          driveVelocity: 0.12,
+          mass: 25,
+          muS: 0.55,
+          muK: 0.35,
+          stictionBoost: false,
+          xDrive: 0.18,
+          xBlock: 0.04,
+          vBlock: 0,
+          mode: "stick",
+          slipTime: 0,
+          elapsed: 0,
+          visualCamera: 0,
+          chart: [],
+        },
+      };
+
+      const controlConfig = {
+        sliding: [
+          ["force", "Applied force F", 0, 500, 1, "N"],
+          ["mass", "Block mass m", 1, 100, 1, "kg"],
+          ["muS", "Static friction μ_s", 0.05, 1.5, 0.01, ""],
+          ["muK", "Kinetic friction μ_k", 0.05, 1.5, 0.01, ""],
+        ],
+        incline: [
+          ["angle", "Ramp angle θ", 0, 60, 0.1, "°"],
+          ["mass", "Block mass m", 1, 100, 1, "kg"],
+          ["muS", "Static friction μ_s", 0.05, 1.5, 0.01, ""],
+          ["muK", "Kinetic friction μ_k", 0.05, 1.5, 0.01, ""],
+        ],
+        stick: [
+          ["k", "Spring constant k", 10, 260, 1, "N/m"],
+          ["driveVelocity", "Drive velocity v_drive", 0.02, 0.5, 0.01, "m/s"],
+          ["mass", "Block mass m", 1, 40, 1, "kg"],
+          ["muS", "Static friction μ_s", 0.05, 1.5, 0.01, ""],
+          ["muK", "Kinetic friction μ_k", 0.05, 1.5, 0.01, ""],
+        ],
+      };
+
+      const tabMeta = {
+        sliding: {
+          title: "Sliding Block Telemetry",
+          controls: "Sliding Block Controls",
+          hint: "Increase applied force until static friction gives way.",
+          simHint:
+            "Push F past static max (shown top-left). Watch it slide. Reset to try again.",
+        },
+        incline: {
+          title: "Inclined Plane Telemetry",
+          controls: "Inclined Plane Controls",
+          hint: "Raise the ramp until tan(θ) exceeds μ_s.",
+          simHint:
+            "Tilt past the slip angle. Watch it slip. Reset to retry.",
+        },
+        stick: {
+          title: "Stick-Slip Telemetry",
+          controls: "Stick-Slip Controls",
+          hint: "A moving drive point stretches the spring until static friction breaks.",
+          simHint:
+            "Pull at constant speed. Watch the spring stretch, snap, restick. Sawtooth chart shows velocity over time.",
+        },
+      };
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function fmt(value, digits = 2) {
+        if (!Number.isFinite(value)) return "—";
+        return value.toFixed(digits);
+      }
+
+      function freshDefaults(tab) {
+        const next = { ...defaults[tab] };
+        if (tab === "stick") next.chart = [];
+        return next;
+      }
+
+      function setupCanvas(targetCanvas, context) {
+        const rect = targetCanvas.getBoundingClientRect();
+        const ratio = window.devicePixelRatio || 1;
+        targetCanvas.width = Math.max(1, Math.floor(rect.width * ratio));
+        targetCanvas.height = Math.max(1, Math.floor(rect.height * ratio));
+        context.setTransform(ratio, 0, 0, ratio, 0, 0);
+      }
+
+      function resizeCanvases() {
+        setupCanvas(canvas, ctx);
+        setupCanvas(chartCanvas, chartCtx);
+      }
+
+      function activeModel() {
+        return state[state.tab];
+      }
+
+      function normalForce(model = activeModel(), angleRad = 0) {
+        if (state.tab === "incline")
+          return model.mass * state.gravity * Math.cos(angleRad);
+        return model.mass * state.gravity;
+      }
+
+      function enforceMu(model) {
+        model.muS = Number(model.muS);
+        model.muK = Math.min(Number(model.muK), Number(model.muS));
+      }
+
+      function setGravity(name, g, isCustom = false) {
+        state.gravityName = name;
+        state.gravity = Number(g);
+        document.getElementById("gravityReadout").textContent =
+          `${name} · ${fmt(state.gravity, 2)} m/s²`;
+        document
+          .getElementById("customGravityRow")
+          .classList.toggle("visible", isCustom);
+        document.querySelectorAll(".option-button").forEach((button) => {
+          button.classList.toggle(
+            "active",
+            button.dataset.world === name.toLowerCase(),
+          );
+        });
+      }
+
+      function createRangeControl(model, key, label, min, max, step, unit) {
+        const row = document.createElement("div");
+        row.className = "range-row";
+
+        const labelWrap = document.createElement("div");
+        labelWrap.className = "range-label";
+
+        const labelEl = document.createElement("label");
+        labelEl.htmlFor = `${state.tab}-${key}`;
+        labelEl.textContent = label;
+
+        const output = document.createElement("output");
+        output.id = `${state.tab}-${key}-value`;
+        output.textContent = `${fmt(model[key], step < 1 ? 2 : 0)}${unit ? ` ${unit}` : ""}`;
+
+        const input = document.createElement("input");
+        input.id = `${state.tab}-${key}`;
+        input.type = "range";
+        input.min = min;
+        input.max = max;
+        input.step = step;
+        input.value = model[key];
+
+        input.addEventListener("input", () => {
+          model[key] = Number(input.value);
+          output.textContent = `${fmt(model[key], step < 1 ? 2 : 0)}${unit ? ` ${unit}` : ""}`;
+          if (key === "muS") {
+            if (model.muK > model.muS) model.muK = model.muS;
+            const muKInput = document.getElementById(`${state.tab}-muK`);
+            if (muKInput) {
+              muKInput.max = model.muS;
+              if (Number(muKInput.value) > model.muS) {
+                muKInput.value = model.muS;
+                const muKOut = document.getElementById(
+                  `${state.tab}-muK-value`,
+                );
+                if (muKOut) muKOut.textContent = fmt(model.muS, 2);
+              }
+            }
+          }
+        });
+
+        labelWrap.append(labelEl, output);
+        row.append(labelWrap, input);
+        return row;
+      }
+
+      function renderControls() {
+        const model = activeModel();
+        enforceMu(model);
+
+        document.getElementById("telemetryTitle").textContent =
+          tabMeta[state.tab].title;
+        document.getElementById("controlsTitle").textContent =
+          tabMeta[state.tab].controls;
+        document.getElementById("controlsHint").textContent =
+          tabMeta[state.tab].hint;
+        document.getElementById("simHint").textContent =
+          tabMeta[state.tab].simHint;
+
+        const list = document.getElementById("controlList");
+        list.innerHTML = "";
+
+        controlConfig[state.tab].forEach(
+          ([key, label, min, max, step, unit]) => {
+            if (key === "muK") max = model.muS;
+            list.append(
+              createRangeControl(model, key, label, min, max, step, unit),
+            );
+          },
+        );
+
+        if (state.tab === "stick") {
+          const row = document.createElement("div");
+          row.className = "toggle-row";
+          row.innerHTML = `
+          <label for="stictionBoost">
+            Low-pressure stiction
+            <small>Qualitative +45% μ_s boost for clean/low-pressure contacts.</small>
+          </label>
+          <span class="switch">
+            <input id="stictionBoost" type="checkbox" ${model.stictionBoost ? "checked" : ""}>
+            <span class="slider"></span>
+          </span>
+        `;
+          list.append(row);
+          row.querySelector("input").addEventListener("change", (event) => {
+            model.stictionBoost = event.target.checked;
+          });
+        }
+      }
+
+      function updateSliding(dt) {
+        const m = state.sliding;
+        enforceMu(m);
+        const fn = m.mass * state.gravity;
+        const staticMax = m.muS * fn;
+        const kinetic = m.muK * fn;
+        const maxX = 1;
+
+        if (m.x >= maxX) {
+          m.x = maxX;
+          if (m.v > 0 || m.force > 0) {
+            m.v = 0;
+            m.status = "at wall";
+            return;
+          }
+        }
+
+        const isMoving = m.v > 0.0001 || m.force > staticMax;
+        if (!isMoving) {
+          m.v = 0;
+          m.status = "stuck";
+        } else {
+          const net = m.force - kinetic;
+          m.v = Math.max(0, m.v + (net / m.mass) * dt);
+          m.x = m.x + m.v * dt * 0.2;
+          if (m.x >= maxX) {
+            m.x = maxX;
+            m.v = 0;
+            m.status = "at wall";
+            return;
+          }
+          m.status = m.v > 0.001 ? "sliding" : "stuck";
+        }
+      }
+
+      function updateIncline(dt) {
+        const m = state.incline;
+        enforceMu(m);
+        const angleRad = (m.angle * Math.PI) / 180;
+        const downSlope = m.mass * state.gravity * Math.sin(angleRad);
+        const fn = m.mass * state.gravity * Math.cos(angleRad);
+        const staticMax = m.muS * fn;
+        const kinetic = m.muK * fn;
+        const minS = 0.16;
+
+        if (m.s <= minS) {
+          m.s = minS;
+          if (m.v > 0 || downSlope > 0) {
+            m.v = 0;
+            m.status = "at base";
+            return;
+          }
+        }
+
+        if (m.v <= 0.0001 && downSlope <= staticMax) {
+          m.v = 0;
+          m.status =
+            Math.abs(Math.tan(angleRad) - m.muS) < 0.025
+              ? "near slip"
+              : "stuck";
+        } else {
+          const net = downSlope - kinetic;
+          m.v = Math.max(0, m.v + (net / m.mass) * dt);
+          // Block slides down the ramp: m.s = 0 is base, m.s = 1 is top.
+          m.s -= m.v * dt * 0.12;
+          if (m.s <= minS) {
+            m.s = minS;
+            m.v = 0;
+            m.status = "at base";
+            return;
+          }
+          m.status = m.v > 0.01 ? "sliding" : "stuck";
+        }
+      }
+
+      function updateStick(dt) {
+        const m = state.stick;
+        enforceMu(m);
+        const effectiveMuS = m.muS * (m.stictionBoost ? 1.45 : 1);
+        const fn = m.mass * state.gravity;
+        const staticMax = effectiveMuS * fn;
+        const kinetic = m.muK * fn;
+        const driveSpeed = m.driveVelocity;
+
+        m.elapsed += dt;
+        m.xDrive += driveSpeed * dt;
+
+        let springForce = m.k * (m.xDrive - m.xBlock);
+
+        if (m.mode === "stick") {
+          m.vBlock = 0;
+          if (springForce > staticMax) {
+            m.mode = "slip";
+            m.slipTime = 0;
+          }
+        }
+
+        if (m.mode === "slip") {
+          m.slipTime += dt;
+          springForce = m.k * (m.xDrive - m.xBlock);
+          const friction = kinetic;
+          const acceleration = (springForce - friction) / m.mass;
+          m.vBlock = Math.max(0, m.vBlock + acceleration * dt);
+          m.xBlock += m.vBlock * dt;
+
+          springForce = m.k * (m.xDrive - m.xBlock);
+          if (m.vBlock === 0 && Math.abs(springForce) <= staticMax) {
+            m.mode = "stick";
+          } else if (
+            m.slipTime > 0.08 &&
+            m.vBlock <= driveSpeed &&
+            Math.abs(springForce) < staticMax * 0.88
+          ) {
+            m.mode = "stick";
+            m.vBlock = 0;
+          }
+        }
+
+        m.chart.push({ t: m.elapsed, v: m.vBlock });
+        if (m.chart.length > 220) m.chart.shift();
+
+        const visibleTravel = m.xBlock - defaults.stick.xBlock - m.visualCamera;
+        if (visibleTravel > 0.34) {
+          const targetCamera = m.xBlock - defaults.stick.xBlock - 0.34;
+          m.visualCamera +=
+            (targetCamera - m.visualCamera) * clamp(dt * 3.5, 0, 1);
+        }
+      }
+
+      function updatePhysics(dt) {
+        const capped = clamp(dt, 0, 0.04);
+        if (state.tab === "sliding") updateSliding(capped);
+        if (state.tab === "incline") updateIncline(capped);
+        if (state.tab === "stick") updateStick(capped);
+      }
+
+      function arrow(context, x1, y1, x2, y2, color, label) {
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const len = Math.hypot(dx, dy);
+        // Skip near-zero arrows entirely so labels never end up stranded
+        // on top of the block when the underlying force is ~0.
+        if (len < 6) return;
+
+        context.save();
+        context.strokeStyle = color;
+        context.fillStyle = color;
+        context.lineWidth = 4;
+        context.lineCap = "round";
+        context.beginPath();
+        context.moveTo(x1, y1);
+        context.lineTo(x2, y2);
+        context.stroke();
+
+        const angle = Math.atan2(dy, dx);
+        const head = 16;
+        context.beginPath();
+        context.moveTo(x2, y2);
+        context.lineTo(
+          x2 - head * Math.cos(angle - Math.PI / 6),
+          y2 - head * Math.sin(angle - Math.PI / 6),
+        );
+        context.lineTo(
+          x2 - head * Math.cos(angle + Math.PI / 6),
+          y2 - head * Math.sin(angle + Math.PI / 6),
+        );
+        context.closePath();
+        context.fill();
+
+        // Place the label past the arrowhead in the arrow's direction so it
+        // never overlaps the body the arrow originates from.
+        context.font = "700 14px JetBrains Mono";
+        const horizontal = Math.abs(dx) >= Math.abs(dy);
+        if (horizontal) {
+          context.textBaseline = "middle";
+          if (dx >= 0) {
+            context.textAlign = "left";
+            context.fillText(label, x2 + 10, y2);
+          } else {
+            context.textAlign = "right";
+            context.fillText(label, x2 - 10, y2);
+          }
+        } else {
+          context.textAlign = "center";
+          if (dy >= 0) {
+            context.textBaseline = "top";
+            context.fillText(label, x2, y2 + 10);
+          } else {
+            context.textBaseline = "bottom";
+            context.fillText(label, x2, y2 - 10);
+          }
+        }
+        context.restore();
+      }
+
+      // Render a small framed info pill in the top-left of the sim canvas.
+      // Visually anchors readouts to the diagram instead of letting them
+      // float against the background.
+      function infoPanel(context, x, y, lines) {
+        if (!lines.length) return;
+        context.save();
+        context.font = "700 13px JetBrains Mono";
+        context.textBaseline = "alphabetic";
+        context.textAlign = "left";
+        let maxW = 0;
+        for (const line of lines) {
+          const w = context.measureText(line.text).width;
+          if (w > maxW) maxW = w;
+        }
+        const padX = 14;
+        const padY = 12;
+        const lineH = 22;
+        const pillW = Math.ceil(maxW + padX * 2);
+        const pillH = lines.length * lineH + padY * 2;
+
+        context.fillStyle = theme.panelBg;
+        context.strokeStyle = theme.panelBorder;
+        context.lineWidth = 1;
+        context.beginPath();
+        context.roundRect(x, y, pillW, pillH, 8);
+        context.fill();
+        context.stroke();
+
+        for (let i = 0; i < lines.length; i++) {
+          context.fillStyle = lines[i].color || theme.text;
+          const ty = y + padY + i * lineH + 14;
+          context.fillText(lines[i].text, x + padX, ty);
+        }
+        context.restore();
+      }
+
+      function drawBlock(context, x, y, w, h, color = "#f4b43f") {
+        context.save();
+        context.fillStyle = color;
+        context.strokeStyle = "#ffd47a";
+        context.lineWidth = 2;
+        context.beginPath();
+        context.roundRect(x, y, w, h, 6);
+        context.fill();
+        context.stroke();
+        context.fillStyle = "rgba(7, 17, 31, 0.35)";
+        context.fillRect(x + 8, y + 10, w - 16, 6);
+        context.restore();
+      }
+
+      function drawSliding(width, height) {
+        const m = state.sliding;
+        const fn = m.mass * state.gravity;
+        const staticMax = m.muS * fn;
+        const kinetic = m.muK * fn;
+        const groundY = height * 0.66;
+        const blockW = 60;
+        const blockH = 40;
+        // Keep the block out of the canvas corners so the F_f arrow on the
+        // left and the F arrow on the right both have room to render.
+        const leftPad = 110;
+        const rightPad = 180;
+        const travel = Math.max(180, width - leftPad - rightPad - blockW);
+        const blockX = leftPad + m.x * travel;
+        const blockY = groundY - blockH;
+
+        ctx.fillStyle = theme.bg;
+        ctx.fillRect(0, 0, width, height);
+        ctx.fillStyle = theme.groundTint;
+        ctx.fillRect(0, groundY, width, height - groundY);
+        ctx.strokeStyle = theme.groundLine;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(34, groundY);
+        ctx.lineTo(width - 34, groundY);
+        ctx.stroke();
+
+        drawBlock(ctx, blockX, blockY, blockW, blockH);
+
+        // Clamp arrow lengths to canvas bounds so labels stay on-screen.
+        // A 50px tail keeps room for the arrowhead + label.
+        const appliedLenRaw = clamp(m.force / 500, 0, 1) * 135;
+        const frictionLenRaw =
+          clamp(
+            (m.status === "stuck" ? m.force : kinetic) / Math.max(1, staticMax),
+            0,
+            1.2,
+          ) * 105;
+        const appliedLen = Math.min(
+          appliedLenRaw,
+          Math.max(0, width - (blockX + blockW) - 50),
+        );
+        const frictionLen = Math.min(frictionLenRaw, Math.max(0, blockX - 50));
+        arrow(
+          ctx,
+          blockX + blockW,
+          blockY + blockH * 0.42,
+          blockX + blockW + appliedLen,
+          blockY + blockH * 0.42,
+          "#68e391",
+          "F",
+        );
+        arrow(
+          ctx,
+          blockX,
+          blockY + blockH * 0.68,
+          blockX - frictionLen,
+          blockY + blockH * 0.68,
+          "#ff6d6d",
+          "F_f",
+        );
+        arrow(
+          ctx,
+          blockX + blockW * 0.52,
+          blockY - 12,
+          blockX + blockW * 0.52,
+          blockY - 70,
+          "#63d6ff",
+          "F_n",
+        );
+        arrow(
+          ctx,
+          blockX + blockW * 0.38,
+          blockY + blockH + 8,
+          blockX + blockW * 0.38,
+          blockY + blockH + 70,
+          "#a98bff",
+          "m·g",
+        );
+
+        infoPanel(ctx, 16, 16, [
+          { text: `static max ${fmt(staticMax, 1)} N` },
+          { text: `kinetic friction ${fmt(kinetic, 1)} N` },
+        ]);
+      }
+
+      function drawIncline(width, height) {
+        const m = state.incline;
+        const angleRad = (m.angle * Math.PI) / 180;
+        const baseX = width * 0.18;
+        const baseY = height * 0.74;
+        // Cap ramp length so the block at the top of the ramp
+        // (s ≈ 0.93) plus the rotated-block extent stays inside the
+        // canvas at steep angles. 70px margin covers the rotated
+        // block's height plus a comfortable gap from the top edge.
+        const sinA = Math.sin(angleRad);
+        const maxByHeight =
+          sinA > 0.01 ? (baseY - 70) / (0.93 * sinA) : Infinity;
+        const rampLen = Math.min(width * 0.64, 520, maxByHeight);
+        const endX = baseX + rampLen * Math.cos(angleRad);
+        const endY = baseY - rampLen * Math.sin(angleRad);
+        const blockS = clamp(m.s, 0.16, 0.93);
+        const blockX = baseX + rampLen * blockS * Math.cos(angleRad);
+        const blockY = baseY - rampLen * blockS * Math.sin(angleRad);
+        const threshold = (Math.atan(m.muS) * 180) / Math.PI;
+
+        ctx.fillStyle = theme.bg;
+        ctx.fillRect(0, 0, width, height);
+        ctx.strokeStyle = theme.groundLine;
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(baseX, baseY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+        ctx.strokeStyle = theme.rule;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(baseX, baseY);
+        ctx.lineTo(endX, baseY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+
+        ctx.save();
+        ctx.translate(blockX, blockY);
+        ctx.rotate(-angleRad);
+        drawBlock(ctx, -29, -38, 58, 38);
+        ctx.restore();
+
+        const centerX = blockX;
+        const centerY = blockY - 19;
+        arrow(ctx, centerX, centerY, centerX, centerY + 92, "#a98bff", "m·g");
+        arrow(
+          ctx,
+          centerX,
+          centerY,
+          centerX + 80 * Math.sin(angleRad),
+          centerY - 80 * Math.cos(angleRad),
+          "#63d6ff",
+          "F_n",
+        );
+        arrow(
+          ctx,
+          centerX,
+          centerY,
+          centerX + 92 * Math.cos(angleRad),
+          centerY - 92 * Math.sin(angleRad),
+          "#68e391",
+          "parallel",
+        );
+        arrow(
+          ctx,
+          centerX,
+          centerY,
+          centerX - 70 * Math.cos(angleRad),
+          centerY + 70 * Math.sin(angleRad),
+          "#ff6d6d",
+          "F_f",
+        );
+
+        infoPanel(ctx, 16, 16, [
+          { text: `slip angle atan(μ_s) = ${fmt(threshold, 1)}°` },
+          {
+            text: `current θ = ${fmt(m.angle, 1)}°`,
+            color: m.angle >= threshold ? theme.red : theme.text,
+          },
+        ]);
+      }
+
+      function drawSpring(context, x1, y, x2) {
+        const span = x2 - x1;
+        const direction = Math.sign(span) || 1;
+        const length = Math.abs(span);
+        const lead = Math.min(18, length * 0.2);
+        const coilLength = Math.max(0, length - lead * 2);
+        const coils = Math.max(3, Math.min(10, Math.round(coilLength / 18)));
+        const amplitude = clamp(length / 8, 5, 14);
+
+        context.save();
+        context.strokeStyle = "#63d6ff";
+        context.lineWidth = 3;
+        context.beginPath();
+        context.moveTo(x1, y);
+
+        if (length < 16) {
+          context.lineTo(x2, y);
+          context.stroke();
+          context.restore();
+          return;
+        }
+
+        context.lineTo(x1 + direction * lead, y);
+        for (let i = 1; i < coils * 2; i++) {
+          const x =
+            x1 + direction * lead + (direction * coilLength * i) / (coils * 2);
+          const offset = i % 2 === 0 ? -amplitude : amplitude;
+          context.lineTo(x, y + offset);
+        }
+        context.lineTo(x2 - direction * lead, y);
+        context.lineTo(x2, y);
+        context.stroke();
+        context.restore();
+      }
+
+      function drawStick(width, height) {
+        const m = state.stick;
+        const fn = m.mass * state.gravity;
+        const effectiveMuS = m.muS * (m.stictionBoost ? 1.45 : 1);
+        const staticMax = effectiveMuS * fn;
+        const kinetic = m.muK * fn;
+        const springForce = m.k * (m.xDrive - m.xBlock);
+        const groundY = height * 0.7;
+        const blockW = 76;
+        const blockH = 48;
+        const baseBlockX = Math.max(82, width * 0.22);
+        const blockY = groundY - blockH;
+        const scale = clamp(width * 0.58, 220, 460);
+        const visualTravel = m.xBlock - defaults.stick.xBlock - m.visualCamera;
+        const blockX = baseBlockX + clamp(visualTravel * scale, -20, width * 0.28);
+        const maxSpringPx = Math.max(70, width - blockX - blockW - 70);
+        const springPx = clamp((m.xDrive - m.xBlock) * scale, 28, maxSpringPx);
+        const driveX = blockX + blockW + springPx;
+        const springY = blockY + blockH * 0.45;
+
+        ctx.fillStyle = theme.bg;
+        ctx.fillRect(0, 0, width, height);
+        ctx.fillStyle = theme.groundTint;
+        ctx.fillRect(0, groundY, width, height - groundY);
+        ctx.strokeStyle = theme.groundLine;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(34, groundY);
+        ctx.lineTo(width - 34, groundY);
+        ctx.stroke();
+
+        ctx.fillStyle = "#1a344e";
+        ctx.fillRect(42, groundY - 138, 18, 138);
+        ctx.fillStyle = "#63d6ff";
+        ctx.fillRect(driveX - 5, blockY - 10, 10, blockH + 20);
+        drawSpring(ctx, blockX + blockW, springY, driveX - 5, springY);
+        drawBlock(ctx, blockX, blockY, blockW, blockH);
+
+        ctx.strokeStyle = theme.rule;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(blockX + blockW / 2, groundY + 12);
+        ctx.lineTo(blockX + blockW / 2, groundY + 28);
+        ctx.moveTo(driveX, groundY + 12);
+        ctx.lineTo(driveX, groundY + 28);
+        ctx.stroke();
+
+        arrow(
+          ctx,
+          blockX + blockW * 0.5,
+          blockY - 8,
+          blockX + blockW * 0.5,
+          blockY - 64,
+          "#63d6ff",
+          "F_n",
+        );
+
+        const springDir = springForce >= 0 ? 1 : -1;
+        const springLen =
+          clamp(Math.abs(springForce) / Math.max(1, staticMax), 0.12, 1.2) *
+          78;
+        const springStartX = springDir > 0 ? blockX + blockW : blockX;
+        arrow(
+          ctx,
+          springStartX,
+          blockY + 20,
+          springStartX + springDir * springLen,
+          blockY + 20,
+          "#68e391",
+          "F_s",
+        );
+
+        const frictionDir = springForce >= 0 ? -1 : 1;
+        const frictionLen =
+          clamp(
+            (m.mode === "slip" ? kinetic : Math.abs(springForce)) /
+              Math.max(1, staticMax),
+            0.12,
+            1.2,
+          ) * 70;
+        const frictionStartX = frictionDir < 0 ? blockX : blockX + blockW;
+        arrow(
+          ctx,
+          frictionStartX,
+          blockY + 32,
+          frictionStartX + frictionDir * frictionLen,
+          blockY + 32,
+          "#ff6d6d",
+          "F_f",
+        );
+
+        infoPanel(ctx, 16, 16, [
+          { text: `effective μ_s ${fmt(effectiveMuS, 2)}` },
+          {
+            text: `static max ${fmt(staticMax, 1)} N · kinetic ${fmt(
+              kinetic,
+              1,
+            )} N`,
+          },
+          { text: `drive velocity ${fmt(m.driveVelocity, 2)} m/s` },
+          { text: `spring stretch ${fmt(m.xDrive - m.xBlock, 2)} m` },
+        ]);
+      }
+
+      function drawChart(width, height) {
+        chartCtx.clearRect(0, 0, width, height);
+        chartCtx.fillStyle = theme.chartBg;
+        chartCtx.fillRect(0, 0, width, height);
+        chartCtx.strokeStyle = theme.grid;
+        chartCtx.lineWidth = 1;
+        for (let i = 1; i < 5; i++) {
+          const y = (height * i) / 5;
+          chartCtx.beginPath();
+          chartCtx.moveTo(0, y);
+          chartCtx.lineTo(width, y);
+          chartCtx.stroke();
+        }
+
+        chartCtx.fillStyle = theme.text;
+        chartCtx.font = "700 13px JetBrains Mono";
+        chartCtx.fillText(
+          state.tab === "stick"
+            ? "block velocity vs time"
+            : "stick-slip chart appears on the Stick-Slip tab",
+          16,
+          24,
+        );
+
+        if (state.tab !== "stick") return;
+
+        const data = state.stick.chart;
+        const maxV = Math.max(0.05, ...data.map((p) => p.v));
+        if (data.length > 1) {
+          const tMin = data[0].t;
+          const tSpan = Math.max(0.001, data[data.length - 1].t - tMin);
+          chartCtx.strokeStyle = "#f4b43f";
+          chartCtx.lineWidth = 2;
+          chartCtx.beginPath();
+          data.forEach((point, index) => {
+            const x = ((point.t - tMin) / tSpan) * (width - 32) + 16;
+            const y = height - 18 - (point.v / maxV) * (height - 52);
+            if (index === 0) chartCtx.moveTo(x, y);
+            else chartCtx.lineTo(x, y);
+          });
+          chartCtx.stroke();
+        }
+        chartCtx.fillStyle = theme.textDim;
+        chartCtx.fillText(`max ${fmt(maxV, 2)} m/s`, width - 124, 24);
+      }
+
+      function renderTelemetry() {
+        const grid = document.getElementById("telemetryGrid");
+        const pill = document.getElementById("statusPill");
+        let rows = [];
+        let status = "Stuck";
+        let className = "status-pill";
+
+        if (state.tab === "sliding") {
+          const m = state.sliding;
+          const fn = m.mass * state.gravity;
+          const staticMax = m.muS * fn;
+          const friction =
+            m.status === "sliding"
+              ? m.muK * fn
+              : Math.min(m.force, staticMax);
+          status = m.status;
+          className += m.status === "sliding" ? " sliding" : "";
+          rows = [
+            ["F_n", `${fmt(fn, 1)} N`],
+            ["Static max", `${fmt(staticMax, 1)} N`],
+            ["F_f", `${fmt(friction, 1)} N`],
+            ["Velocity", `${fmt(m.v, 2)} m/s`],
+          ];
+        }
+
+        if (state.tab === "incline") {
+          const m = state.incline;
+          const rad = (m.angle * Math.PI) / 180;
+          const fn = m.mass * state.gravity * Math.cos(rad);
+          const parallel = m.mass * state.gravity * Math.sin(rad);
+          const threshold = (Math.atan(m.muS) * 180) / Math.PI;
+          status = m.status;
+          className +=
+            m.status === "sliding"
+              ? " sliding"
+              : m.status === "near slip"
+                ? " near"
+                : "";
+          rows = [
+            ["F_n", `${fmt(fn, 1)} N`],
+            ["m·g·sinθ", `${fmt(parallel, 1)} N`],
+            ["Slip angle", `${fmt(threshold, 1)}°`],
+            ["Velocity", `${fmt(m.v, 2)} m/s`],
+          ];
+        }
+
+        if (state.tab === "stick") {
+          const m = state.stick;
+          const effectiveMuS = m.muS * (m.stictionBoost ? 1.45 : 1);
+          const fn = m.mass * state.gravity;
+          const springForce = m.k * (m.xDrive - m.xBlock);
+          status = m.mode === "slip" ? "slipping" : "sticking";
+          className += m.mode === "slip" ? " slipping" : "";
+          rows = [
+            ["F_n", `${fmt(fn, 1)} N`],
+            ["F_spring", `${fmt(springForce, 1)} N`],
+            ["μ_s effective", fmt(effectiveMuS, 2)],
+            ["v_block", `${fmt(m.vBlock, 2)} m/s`],
+          ];
+        }
+
+        pill.className = className;
+        pill.textContent = status;
+        grid.innerHTML = rows
+          .map(
+            ([label, value]) =>
+              `<div class="telemetry"><span>${label}</span><strong>${value}</strong></div>`,
+          )
+          .join("");
+      }
+
+      function render() {
+        const width = canvas.getBoundingClientRect().width;
+        const height = canvas.getBoundingClientRect().height;
+        ctx.clearRect(0, 0, width, height);
+
+        if (state.tab === "sliding") drawSliding(width, height);
+        if (state.tab === "incline") drawIncline(width, height);
+        if (state.tab === "stick") drawStick(width, height);
+
+        drawChart(
+          chartCanvas.getBoundingClientRect().width,
+          chartCanvas.getBoundingClientRect().height,
+        );
+        renderTelemetry();
+      }
+
+      function updateStats() {
+        const values = document
+          .getElementById("muSamples")
+          .value.split(/[\n,;\s]+/)
+          .map((value) => Number(value.trim()))
+          .filter((value) => Number.isFinite(value));
+
+        const n = values.length;
+        const mean = n
+          ? values.reduce((sum, value) => sum + value, 0) / n
+          : NaN;
+        const variance =
+          n > 1
+            ? values.reduce((sum, value) => sum + (value - mean) ** 2, 0) /
+              (n - 1)
+            : NaN;
+        const std = Math.sqrt(variance);
+        const min = n > 1 ? mean - 2 * std : NaN;
+        const max = n > 1 ? mean + 2 * std : NaN;
+
+        document.getElementById("statN").textContent = String(n);
+        document.getElementById("statMean").textContent = n
+          ? fmt(mean, 3)
+          : "—";
+        document.getElementById("statStd").textContent =
+          n > 1 ? fmt(std, 3) : "need n > 1";
+        document.getElementById("statBand").textContent =
+          n > 1 ? `${fmt(min, 3)}-${fmt(max, 3)}` : "need n > 1";
+      }
+
+      function frame(now) {
+        const dt = (now - state.lastTime) / 1000;
+        state.lastTime = now;
+        updatePhysics(dt);
+        render();
+        requestAnimationFrame(frame);
+      }
+
+      document
+        .getElementById("gravityOptions")
+        .addEventListener("click", (event) => {
+          const button = event.target.closest("button");
+          if (!button) return;
+          if (button.dataset.world === "custom") {
+            setGravity(
+              "Custom",
+              document.getElementById("customGravity").value,
+              true,
+            );
+          } else {
+            const name = button.querySelector("strong").textContent;
+            setGravity(name, button.dataset.g, false);
+          }
+        });
+
+      document
+        .getElementById("customGravity")
+        .addEventListener("input", (event) => {
+          document.getElementById("customGravityValue").textContent =
+            `${fmt(Number(event.target.value), 2)} m/s²`;
+          setGravity("Custom", event.target.value, true);
+        });
+
+      document.querySelectorAll(".tab-button").forEach((button) => {
+        button.addEventListener("click", () => {
+          state.tab = button.dataset.tab;
+          document
+            .querySelectorAll(".tab-button")
+            .forEach((item) =>
+              item.classList.toggle("active", item === button),
+            );
+          renderControls();
+        });
+      });
+
+      function resetActiveTab() {
+        Object.assign(state[state.tab], freshDefaults(state.tab));
+        renderControls();
+        render();
+      }
+
+      document
+        .getElementById("resetSim")
+        .addEventListener("click", resetActiveTab);
+
+      document.getElementById("statsToggle").addEventListener("click", () => {
+        const body = document.getElementById("statsBody");
+        const isOpen = body.classList.toggle("open");
+        const button = document.getElementById("statsToggle");
+        button.textContent = isOpen ? "−" : "+";
+        button.setAttribute("aria-expanded", String(isOpen));
+      });
+
+      document
+        .getElementById("muSamples")
+        .addEventListener("input", updateStats);
+      window.addEventListener("resize", resizeCanvases);
+
+      if (!CanvasRenderingContext2D.prototype.roundRect) {
+        CanvasRenderingContext2D.prototype.roundRect = function roundRect(
+          x,
+          y,
+          w,
+          h,
+          r,
+        ) {
+          const radius = Math.min(r, w / 2, h / 2);
+          this.moveTo(x + radius, y);
+          this.arcTo(x + w, y, x + w, y + h, radius);
+          this.arcTo(x + w, y + h, x, y + h, radius);
+          this.arcTo(x, y + h, x, y, radius);
+          this.arcTo(x, y, x + w, y, radius);
+          return this;
+        };
+      }
+
+      resizeCanvases();
+      renderControls();
+      updateStats();
+      requestAnimationFrame(frame);
+    </script>
+    <script>
+      (function () {
+        var btn = document.getElementById("themeToggle");
+        if (!btn) return;
+        btn.addEventListener("click", function () {
+          var cur = document.documentElement.dataset.theme;
+          var next = cur === "light" ? "dark" : "light";
+          document.documentElement.dataset.theme = next;
+          localStorage.setItem("physicsLabTheme", next);
+          window.dispatchEvent(new CustomEvent("themechange", { detail: next }));
+        });
+      })();
+      (function () {
+        var btn = document.getElementById("focusToggle");
+        if (!btn) return;
+        btn.addEventListener("click", function () {
+          document.body.classList.toggle("sim-focus");
+          // Force the canvases to recompute their pixel size for the new
+          // column layout. Both sim and chart canvases listen for resize.
+          window.dispatchEvent(new Event("resize"));
+        });
+      })();
+    </script>
+  </body>
+</html>

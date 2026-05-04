@@ -1,0 +1,1340 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🪐</text></svg>"
+    />
+    <title>Cross-Planet Rocket Ascent · Hwa's Physics Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/shared/lab.css" />
+    <style>
+      .rocket-page .container {
+        max-width: 1400px;
+      }
+      
+      .rocket-page header {
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 24px;
+      }
+      
+      .rocket-page .planet-row {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        margin-bottom: 24px;
+      }
+      
+      .rocket-page .main-grid {
+        grid-template-columns: minmax(0, 1fr) 340px;
+        margin-bottom: 24px;
+      }
+      
+      .rocket-page .sim-pane {
+        overflow: hidden;
+      }
+      
+      .rocket-page .pane-label {
+        margin-bottom: 10px;
+      }
+      
+      .rocket-page #rocket-canvas {
+        height: min(56vw, 500px);
+        min-height: 360px;
+      }
+      
+      .rocket-page .charts-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+      
+      .rocket-page .controls {
+        margin-bottom: 32px;
+      }
+      
+      .rocket-page .controls-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 18px;
+        margin-bottom: 18px;
+      }
+      
+      .rocket-page .button-row {
+        grid-template-columns: minmax(140px, 1fr) auto;
+      }
+    </style>
+    <script>
+      (function () {
+        var stored = localStorage.getItem("physicsLabTheme");
+        document.documentElement.dataset.theme = stored === "light" ? "light" : "dark";
+      })();
+    </script>
+  </head>
+  <body class="sim-page rocket-page">
+    <button
+      class="theme-toggle"
+      id="themeToggle"
+      type="button"
+      aria-label="Toggle color theme"
+      title="Toggle color theme"
+    >
+      <span class="theme-icon theme-icon-dark" aria-hidden="true">◑</span>
+      <span class="theme-icon theme-icon-light" aria-hidden="true">◐</span>
+    </button>
+
+    <div class="container sim-container">
+      <a class="back-link" href="/">← Back to Lab</a>
+      <!-- HEADER -->
+      <header>
+        <div class="badge">SANDBOX // V1.0</div>
+        <h1>Cross-Planet <span class="accent">Rocket Ascent</span></h1>
+        <p class="subtitle">
+          A vertical-launch sandbox inspired by Blue Origin's New Shepard. Throw
+          a rocket at the sky on five different worlds and see what happens.
+        </p>
+      </header>
+
+      <!-- PLANET SELECTOR -->
+      <div class="planet-row" id="planet-row"></div>
+
+      <!-- MAIN GRID: animation + telemetry -->
+      <div class="main-grid">
+        <div class="sim-pane">
+          <button
+            class="focus-toggle"
+            id="focusToggle"
+            type="button"
+            aria-label="Toggle focus mode"
+            title="Toggle focus mode"
+          >
+            <svg
+              class="focus-icon focus-icon-expand"
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              width="22"
+              height="22"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+              <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+              <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+              <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+            </svg>
+            <svg
+              class="focus-icon focus-icon-collapse"
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              width="22"
+              height="22"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M8 3v3a2 2 0 0 1-2 2H3" />
+              <path d="M21 8h-3a2 2 0 0 1-2-2V3" />
+              <path d="M3 16h3a2 2 0 0 1 2 2v3" />
+              <path d="M16 21v-3a2 2 0 0 1 2-2h3" />
+            </svg>
+          </button>
+          <div class="pane-label">
+            ↥ ASCENT VIEW
+            <span
+              id="planet-label"
+              style="color: var(--amber); margin-left: 8px"
+              >EARTH</span
+            >
+          </div>
+          <canvas id="rocket-canvas" width="800" height="500"></canvas>
+        </div>
+
+        <div class="telemetry">
+          <div class="telemetry-title">
+            <span><span class="led" id="status-led"></span>TELEMETRY</span>
+            <span id="status-text">STANDBY</span>
+          </div>
+          <div class="telem-row">
+            <span class="telem-label">T+</span
+            ><span class="telem-value cyan"
+              ><span id="t-val">0.0</span
+              ><span class="telem-unit">s</span></span
+            >
+          </div>
+          <div class="telem-row">
+            <span class="telem-label">ALTITUDE</span
+            ><span class="telem-value amber"
+              ><span id="h-val">0</span><span class="telem-unit">m</span></span
+            >
+          </div>
+          <div class="telem-row">
+            <span class="telem-label">VELOCITY</span
+            ><span class="telem-value"
+              ><span id="v-val">0</span
+              ><span class="telem-unit">m/s</span></span
+            >
+          </div>
+          <div class="telem-row">
+            <span class="telem-label">ACCELERATION</span
+            ><span class="telem-value"
+              ><span id="a-val">0</span
+              ><span class="telem-unit">m/s²</span></span
+            >
+          </div>
+          <div class="telem-row">
+            <span class="telem-label">DYNAMIC PRESSURE (Q)</span
+            ><span class="telem-value" id="q-val-wrap"
+              ><span id="q-val">0</span><span class="telem-unit">Pa</span></span
+            >
+          </div>
+          <div class="telem-row">
+            <span class="telem-label">DRAG FORCE</span
+            ><span class="telem-value"
+              ><span id="d-val">0</span><span class="telem-unit">N</span></span
+            >
+          </div>
+          <div class="telem-row">
+            <span class="telem-label">FUEL REMAINING</span
+            ><span class="telem-value"
+              ><span id="f-val">100</span
+              ><span class="telem-unit">%</span></span
+            >
+          </div>
+          <div class="telem-row">
+            <span class="telem-label">MAX-Q (PEAK)</span
+            ><span class="telem-value danger"
+              ><span id="maxq-val">0</span
+              ><span class="telem-unit"
+                >Pa @ <span id="maxq-alt">0</span>m</span
+              ></span
+            >
+          </div>
+        </div>
+      </div>
+
+      <!-- CHARTS -->
+      <div class="charts-grid">
+        <div class="chart-box">
+          <div class="chart-title">↑ Altitude vs Time</div>
+          <canvas
+            id="alt-chart"
+            class="chart-canvas"
+            width="500"
+            height="140"
+          ></canvas>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">↑ Dynamic Pressure vs Time</div>
+          <canvas
+            id="q-chart"
+            class="chart-canvas"
+            width="500"
+            height="140"
+          ></canvas>
+        </div>
+      </div>
+
+      <!-- CONTROLS -->
+      <div class="controls">
+        <div class="controls-grid">
+          <div class="slider-group">
+            <div class="slider-label">
+              <span>THRUST</span
+              ><span class="v"><span id="thrust-disp">490</span> kN</span>
+            </div>
+            <input
+              type="range"
+              id="thrust"
+              min="200"
+              max="1500"
+              value="490"
+              step="10"
+            />
+          </div>
+          <div class="slider-group">
+            <div class="slider-label">
+              <span>FUEL MASS</span
+              ><span class="v"><span id="fuel-disp">14000</span> kg</span>
+            </div>
+            <input
+              type="range"
+              id="fuel"
+              min="2000"
+              max="40000"
+              value="14000"
+              step="500"
+            />
+          </div>
+          <div class="slider-group">
+            <div class="slider-label">
+              <span>DRY MASS</span
+              ><span class="v"><span id="dry-disp">20000</span> kg</span>
+            </div>
+            <input
+              type="range"
+              id="dry"
+              min="5000"
+              max="50000"
+              value="20000"
+              step="1000"
+            />
+          </div>
+          <div class="slider-group">
+            <div class="slider-label">
+              <span>DRAG COEFFICIENT (Cd)</span
+              ><span class="v" id="cd-disp">0.50</span>
+            </div>
+            <input
+              type="range"
+              id="cd"
+              min="10"
+              max="120"
+              value="50"
+              step="1"
+            />
+          </div>
+          <div class="slider-group">
+            <div class="slider-label">
+              <span>CROSS-SECTION (A)</span
+              ><span class="v"><span id="area-disp">10.8</span> m²</span>
+            </div>
+            <input
+              type="range"
+              id="area"
+              min="3"
+              max="40"
+              value="108"
+              step="1"
+            />
+          </div>
+        </div>
+
+        <div class="button-row">
+          <button class="btn btn-launch" id="launch-btn">▲ LAUNCH</button>
+          <button class="btn btn-reset" id="reset-btn">↻ RESET</button>
+        </div>
+
+        <div class="equation-strip">
+          F<sub>net</sub> = T − ½ρ(h)·Cd·A·v·|v| − m·g(h)
+          &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; q = ½ρv²
+          &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; ρ(h) = ρ₀·e<sup>−h/H</sup>
+        </div>
+      </div>
+
+      <!-- FOOTER EXPLANATION -->
+      <footer>
+        <div class="footer-section">
+          <h2><span class="num">01</span>How to Read the Display</h2>
+          <p>
+            The big number that matters most is <strong>Q</strong> — dynamic
+            pressure. It's the pressure-like aerodynamic load per square meter
+            as the rocket punches through atmosphere. Multiply q by drag
+            coefficient and area to get the actual drag force. Watch for the red
+            <strong>MAX-Q</strong> tag: that's the moment your rocket is under
+            maximum aerodynamic stress. Real engineers throttle their engines
+            down at this exact moment to avoid ripping the vehicle apart.
+          </p>
+          <p>
+            The two charts below the rocket track <strong>altitude</strong> (how
+            high you've climbed) and <strong>Q over time</strong> (so you can
+            see exactly when stress peaks). On Earth, Max-Q usually hits around
+            10–15 km altitude. On Venus it would be terrifyingly higher. On the
+            Moon it's literally zero.
+          </p>
+        </div>
+
+        <div class="footer-section">
+          <h2><span class="num">02</span>Glossary &amp; Formulas</h2>
+          <p>
+            Quick reference for every variable and equation the simulator uses.
+            Units in SI throughout.
+          </p>
+
+          <h3>Variables</h3>
+          <div class="planet-card">
+            <p><code>h</code> — altitude above surface (m)</p>
+            <p><code>v</code> — vertical velocity (m/s); positive = up</p>
+            <p><code>a</code> — acceleration (m/s²)</p>
+            <p>
+              <code>m</code> — total rocket mass at this instant (kg) = dry mass
+              + remaining fuel
+            </p>
+            <p>
+              <code>T</code> — thrust force (N) — set by the slider, constant
+              while fuel &gt; 0
+            </p>
+            <p>
+              <code>g₀</code> — surface gravity of the selected planet (m/s²)
+            </p>
+            <p><code>g(h)</code> — gravity at altitude h (m/s²)</p>
+            <p><code>R</code> — planet radius (m)</p>
+            <p><code>ρ₀</code> — atmospheric density at the surface (kg/m³)</p>
+            <p><code>ρ(h)</code> — atmospheric density at altitude h (kg/m³)</p>
+            <p>
+              <code>H</code> — atmospheric scale height (m); altitude over which
+              density drops by factor of <code>e</code> (~63%)
+            </p>
+            <p>
+              <code>Cd</code> — drag coefficient (dimensionless); ~0.5 for a
+              typical rocket shape
+            </p>
+            <p>
+              <code>A</code> — cross-sectional area facing the airstream (m²)
+            </p>
+            <p><code>q</code> — dynamic pressure (Pa = N/m²)</p>
+            <p><code>F_d</code> — drag force (N)</p>
+            <p><code>F_net</code> — net force on the rocket (N)</p>
+            <p>
+              <code>Isp</code> — specific impulse (s); fuel efficiency. Higher
+              Isp = more thrust per kg of fuel burned
+            </p>
+          </div>
+
+          <h3>Core equations</h3>
+          <div class="planet-card">
+            <p>
+              <strong>Dynamic pressure</strong> &nbsp;<code
+                >q = ½ · ρ(h) · v²</code
+              >
+              &nbsp;[Pa]
+            </p>
+            <p>
+              <strong>Drag force (signed)</strong> &nbsp;<code
+                >F_drag = −½ · ρ(h) · Cd · A · v · |v|</code
+              >
+              &nbsp;[N]&nbsp; — automatically opposes motion regardless of
+              direction (the telemetry display shows |F_drag|, the magnitude)
+            </p>
+            <p>
+              <strong>Atmospheric density</strong> &nbsp;<code
+                >ρ(h) = ρ₀ · e^(−h/H)</code
+              >
+              &nbsp;[kg/m³]&nbsp; — exponential isothermal model
+            </p>
+            <p>
+              <strong>Gravity at altitude</strong> &nbsp;<code
+                >g(h) = g₀ · (R / (R+h))²</code
+              >
+              &nbsp;[m/s²]&nbsp; — inverse-square law
+            </p>
+            <p>
+              <strong>Net force (vertical)</strong> &nbsp;<code
+                >F_net = T + F_drag − m · g(h)</code
+              >
+              &nbsp;[N]
+            </p>
+            <p>
+              <strong>Acceleration</strong> &nbsp;<code>a = F_net / m</code>
+              &nbsp;[m/s²]
+            </p>
+            <p>
+              <strong>Fuel mass flow rate</strong> &nbsp;<code
+                >ṁ = T / (Isp · g_Earth)</code
+              >
+              &nbsp;[kg/s]&nbsp; — note this uses Earth's g₀ (9.81) by
+              convention even on other planets, because Isp is defined that way
+            </p>
+            <p>
+              <strong>Mass update</strong> &nbsp;<code
+                >m(t+dt) = m(t) − ṁ · dt</code
+              >
+              &nbsp;(while fuel remains; partial-step on the burnout boundary)
+            </p>
+          </div>
+
+          <h3>Numerical integration</h3>
+          <p>
+            The sim uses <strong>semi-implicit Euler</strong> (also known as
+            Euler-Cromer) at a fixed timestep <code>dt = 0.05 s</code>, with ~5×
+            real-time acceleration. Each frame: compute forces at current state
+            → update velocity → use the <em>new</em> velocity to update altitude
+            → update fuel → repeat. Updating position with the new velocity
+            (rather than the old one) makes this scheme more stable than plain
+            forward Euler for motion problems. It does <em>not</em> make the
+            system energy-conserving — thrust adds energy, drag removes it, mass
+            changes, and impacts clamp state — but it's accurate enough for an
+            interactive sandbox at this timestep.
+          </p>
+          <p>
+            When fuel runs out mid-step, the timestep is split into a burn
+            segment and a coast segment so thrust impulse is delivered exactly,
+            not over-applied.
+          </p>
+
+          <h3>Key constants used</h3>
+          <div class="planet-card">
+            <h4>PLANETS</h4>
+            <p>
+              <code>Earth</code>: g₀=9.81, R=6,371 km, ρ₀=1.225, H=8.5 km,
+              target=100 km (Kármán convention)
+            </p>
+            <p>
+              <code>Mars</code>: g₀=3.71, R=3,389 km, ρ₀=0.020, H=11.1 km,
+              target=80 km
+            </p>
+            <p>
+              <code>Venus</code>: g₀=8.87, R=6,052 km, ρ₀=65, H=15.9 km,
+              target=250 km
+            </p>
+            <p>
+              <code>Moon</code>: g₀=1.62, R=1,737 km, ρ₀=0 (no atmosphere),
+              target=50 km
+            </p>
+            <p>
+              <code>Titan</code>: g₀=1.35, R=2,575 km, ρ₀=5.3, H=21 km,
+              target=600 km (high-atmosphere reference, not a Kármán line)
+            </p>
+          </div>
+          <div class="planet-card">
+            <h4>ROCKET (defaults, New Shepard-class)</h4>
+            <p><code>Thrust</code>: 490 kN (BE-3 engine ballpark)</p>
+            <p><code>Dry mass</code>: 20,000 kg</p>
+            <p><code>Fuel mass</code>: 14,000 kg</p>
+            <p><code>Cd</code>: 0.5</p>
+            <p><code>A</code>: 10.8 m² (≈3.7 m diameter)</p>
+            <p>
+              <code>Isp</code>: 350 s (representative atmospheric LH2/LOX value
+              for this sandbox; Blue Origin publishes BE-3 thrust but not a
+              clear public sea-level Isp)
+            </p>
+          </div>
+        </div>
+
+        <div class="footer-section">
+          <h2><span class="num">03</span>Dynamic Pressure Drives Drag</h2>
+          <p>
+            Your friend asked about compression ratio and friction ratio. Here's
+            the connection: in rocket flight, both come out of
+            <strong>the same airflow term</strong>, <code>½ρv²</code>.
+          </p>
+          <p>
+            Density (ρ) times velocity squared, halved. Call it
+            <strong>dynamic pressure (q)</strong> when you're thinking of it as
+            a squeezing force per unit area on the airframe — that's the
+            "compression" feel. Multiply it by drag coefficient and
+            cross-sectional area and now it's <strong>drag force</strong> — the
+            friction slowing you down. They're not literally the same thing
+            (drag also depends on shape, flow regime, Mach number, Reynolds
+            number), but they share that <code>½ρv²</code> heart.
+          </p>
+          <p>
+            This is why thick atmospheres (Venus) and high speeds (anywhere)
+            both punish a rocket: each one pumps up that <code>½ρv²</code> term.
+            Toggle Educational mode to see the equation strip live.
+          </p>
+        </div>
+
+        <div class="footer-section">
+          <h2><span class="num">04</span>Max-Q: Peak Aerodynamic Stress</h2>
+          <p>
+            A rocket starts in dense atmosphere but moves slowly — small q. As
+            it climbs, density drops fast (exponentially), but velocity grows
+            even faster. Q spikes, peaks somewhere in the middle, then collapses
+            as the rocket leaves atmosphere behind. That peak is
+            <strong>Max-Q</strong>.
+          </p>
+          <p>
+            Many orbital launches hit Max-Q in the lower stratosphere — often
+            roughly 10–15 km — though it varies by vehicle and trajectory.
+            Falcon 9 sees about 35 kPa; Saturn V was about 33 kPa. Engineers
+            design the airframe to survive that worst moment, and during a
+            launch broadcast, "passing through Max-Q" is the call you hear when
+            everyone exhales.
+          </p>
+          <p>
+            <em>Note on this sim:</em> real rockets actively
+            <strong>throttle down</strong> as they approach Max-Q (BE-3 can
+            throttle to about 18% of full thrust), then throttle back up once
+            the air thins. This sim runs constant thrust until fuel-out, which
+            makes Max-Q artificially severe compared to a real well-flown
+            ascent. That's a feature, not a bug — it makes the danger of high q
+            viscerally obvious. Just don't read the absolute numbers as
+            predictions.
+          </p>
+        </div>
+
+        <div class="footer-section">
+          <h2><span class="num">05</span>A Tour of Five Worlds</h2>
+
+          <div class="planet-card">
+            <h4>EARTH — the baseline</h4>
+            <p>
+              The closest real-world inspiration for this sandbox. Surface
+              gravity 9.81 m/s², thick nitrogen-oxygen atmosphere, scale height
+              ~8.5 km. Max-Q is non-trivial but manageable; a healthy
+              thrust-to-weight ratio gets you above 100 km (the Kármán
+              convention, edge of space) with a suborbital-scale propellant
+              load.
+            </p>
+          </div>
+
+          <div class="planet-card">
+            <h4>MARS — rocket paradise</h4>
+            <p>
+              Gravity is ~38% of Earth's and the atmosphere is less than 1% as
+              dense. Dynamic pressure barely registers. The same rocket that
+              struggles on Earth would coast up effortlessly here — which is why
+              Mars Sample Return's ascent vehicle is tiny compared to anything
+              launched from Earth.
+            </p>
+          </div>
+
+          <div class="planet-card">
+            <h4>VENUS — rocket nightmare</h4>
+            <p>
+              Gravity is similar to Earth's, but surface
+              <strong>pressure</strong> is about 92× Earth's, and surface
+              <strong>density</strong> is about 53× Earth sea-level air (65 vs
+              1.225 kg/m³). Pressure-wise, it's like being nearly a kilometer
+              underwater — though the fluid is still hot CO₂ gas, not liquid
+              water. Try the sim with default rocket settings: Max-Q goes
+              absurd, and the rocket may not even break free of the lower
+              atmosphere.
+            </p>
+            <p>
+              <em>Reality check:</em> this sim simulates the
+              <em>same mathematical rocket</em> on Venus — it does not model the
+              fact that an Earth-class engine wouldn't actually function at 92
+              bar ambient pressure (the nozzle physics break down) or survive
+              the 460°C surface heat. Venus mode shows what happens to the
+              equations when atmosphere goes extreme, not what would happen to a
+              buildable vehicle.
+            </p>
+          </div>
+
+          <div class="planet-card">
+            <h4>MOON — pure thrust vs gravity</h4>
+            <p>
+              No atmosphere, no drag, no Max-Q. Q stays at zero the whole
+              flight. This is the cleanest possible test of "thrust vs gravity"
+              because there's no air pushing back at all. The Apollo Lunar
+              Module ascent stage worked because of this — minimal engine,
+              minimal fuel, just escape the gravity well.
+            </p>
+          </div>
+
+          <div class="planet-card">
+            <h4>TITAN — the strangest case</h4>
+            <p>
+              Saturn's largest moon. Gravity is only 14% of Earth's, but the
+              atmosphere is
+              <strong>~4× denser than Earth's at the surface</strong> (5.3 vs
+              1.225 kg/m³). This combination is so extreme that humans could
+              plausibly fly with wing-like aids. A rocket here faces moderate Q
+              from the dense low air but barely fights gravity at all.
+            </p>
+            <p>
+              <em>Atmosphere caveat:</em> the 21 km scale height used here
+              describes Titan's lower atmosphere, where drag during ascent
+              matters most. Titan's real upper atmosphere is far more extended
+              than this simple exponential model suggests — Cassini measured
+              drag at altitudes up to ~975 km. The 600 km "target" line is a
+              high-atmosphere reference marker, not a Kármán line.
+            </p>
+          </div>
+        </div>
+
+        <div class="footer-section">
+          <h2><span class="num">06</span>What This Sandbox Does NOT Capture</h2>
+          <p>
+            Every model lies a little. Here are the honest limitations so your
+            friend doesn't draw wrong conclusions:
+          </p>
+          <ul class="caveat-list">
+            <li>
+              <strong>1D vertical only.</strong> Real rockets do a "gravity
+              turn" early in flight to reach orbit, not just shoot straight up.
+              This sim is suborbital ascent only — the New Shepard regime, not
+              the Falcon 9 regime.
+            </li>
+            <li>
+              <strong>Constant thrust.</strong> Real engines throttle down at
+              Max-Q. Here thrust is fixed until fuel runs out, which makes Max-Q
+              higher than it would be on a real well-designed flight.
+            </li>
+            <li>
+              <strong>Constant Cd.</strong> Drag coefficient actually changes
+              with speed (especially around the speed of sound). We use a single
+              Cd ≈ 0.5 for the whole flight.
+            </li>
+            <li>
+              <strong>No aerodynamic heating.</strong> A real rocket plowing
+              through Venus would also be cooking from compression heating. We
+              track only mechanical force.
+            </li>
+            <li>
+              <strong>Isothermal atmosphere.</strong> We model density with a
+              single exponential scale height, ignoring temperature variation
+              with altitude. Good enough to feel the difference between worlds;
+              not good enough to design a real vehicle.
+            </li>
+            <li>
+              <strong>No orbital mechanics.</strong> We're tracking ascent, not
+              orbit insertion. To "reach the target" here means crossing a
+              chosen altitude marker. Only Earth's 100 km marker is the standard
+              Kármán-line convention; the others are reasonable reference
+              altitudes for those worlds, not hard physical boundaries.
+            </li>
+          </ul>
+        </div>
+
+        <div class="footer-section">
+          <h2><span class="num">07</span>Things to Try</h2>
+          <p>
+            → Set thrust to minimum on Earth — does it even leave the pad? Now
+            switch to Mars without changing anything.
+          </p>
+          <p>
+            → Crank thrust up on Venus. Watch Max-Q. Can you find a thrust that
+            gets to 50 km without dynamic pressure exceeding what Falcon 9
+            survives (~35 kPa)?
+          </p>
+          <p>
+            → Compare Moon and Mars with identical settings. The atmosphere on
+            Mars is so thin that it almost doesn't matter — but the difference
+            shows up in the velocity curve.
+          </p>
+          <p>
+            → Drop drag coefficient to 0.1 (very streamlined) and increase
+            cross-section to simulate a wider rocket. Which has more impact on
+            Venus?
+          </p>
+        </div>
+      </footer>
+    </div>
+
+    <footer class="site-credits">
+      Built by Hwa Lee ·
+      <a href="#" rel="noopener" aria-label="GitHub (link coming soon)">GitHub</a>
+    </footer>
+
+    <script>
+      // ============================================================
+      // PLANET DATA
+      // ============================================================
+      const PLANETS = {
+        earth: {
+          g: 9.81,
+          R: 6371000,
+          rho0: 1.225,
+          H: 8500,
+          color: "#3b82f6",
+          accent: "#60a5fa",
+          name: "EARTH",
+          spaceAlt: 100000,
+          surfaceColor: "#1e3a5f",
+        },
+        mars: {
+          g: 3.71,
+          R: 3389000,
+          rho0: 0.02,
+          H: 11100,
+          color: "#dc2626",
+          accent: "#f87171",
+          name: "MARS",
+          spaceAlt: 80000,
+          surfaceColor: "#7c2d12",
+        },
+        venus: {
+          g: 8.87,
+          R: 6052000,
+          rho0: 65,
+          H: 15900,
+          color: "#f59e0b",
+          accent: "#fbbf24",
+          name: "VENUS",
+          spaceAlt: 250000,
+          surfaceColor: "#78350f",
+        },
+        moon: {
+          g: 1.62,
+          R: 1737000,
+          rho0: 0,
+          H: 1,
+          color: "#9ca3af",
+          accent: "#d1d5db",
+          name: "MOON",
+          spaceAlt: 50000,
+          surfaceColor: "#374151",
+        },
+        titan: {
+          g: 1.35,
+          R: 2575000,
+          rho0: 5.3,
+          H: 21000,
+          color: "#fbbf24",
+          accent: "#fde68a",
+          name: "TITAN",
+          spaceAlt: 600000,
+          surfaceColor: "#713f12",
+        },
+      };
+
+      // ============================================================
+      // STATE
+      // ============================================================
+      let currentPlanet = "earth";
+      let rocket = {
+        thrust: 490000, // N
+        m_dry: 20000, // kg
+        m_fuel: 14000, // kg
+        m_fuel_initial: 14000,
+        Cd: 0.5,
+        A: 10.8, // m²
+        Isp: 350, // specific impulse (s) — atmospheric LH2/LOX middle ground
+      };
+
+      let sim = {
+        running: false,
+        done: false,
+        h: 0,
+        v: 0,
+        a: 0,
+        t: 0,
+        fuel: 14000,
+        q: 0,
+        drag: 0,
+        maxQ: 0,
+        maxQAlt: 0,
+        history: [], // { t, h, v, q }
+        hitMaxQ: false,
+      };
+
+      // ============================================================
+      // PLANET SELECTOR UI
+      // ============================================================
+      const planetRow = document.getElementById("planet-row");
+      Object.entries(PLANETS).forEach(([key, p]) => {
+        const btn = document.createElement("button");
+        btn.className = "planet-btn" + (key === "earth" ? " active" : "");
+        btn.dataset.planet = key;
+        btn.innerHTML = `<div class="planet-icon" style="background: radial-gradient(circle at 30% 30%, ${p.accent}, ${p.color});"></div><div class="planet-name">${p.name}</div>`;
+        btn.addEventListener("click", () => selectPlanet(key));
+        planetRow.appendChild(btn);
+      });
+
+      function selectPlanet(key) {
+        currentPlanet = key;
+        document
+          .querySelectorAll(".planet-btn")
+          .forEach((b) =>
+            b.classList.toggle("active", b.dataset.planet === key),
+          );
+        document.getElementById("planet-label").textContent = PLANETS[key].name;
+        resetSim();
+      }
+
+      // ============================================================
+      // CONTROLS
+      // ============================================================
+      const $ = (id) => document.getElementById(id);
+
+      $("thrust").addEventListener("input", (e) => {
+        rocket.thrust = +e.target.value * 1000;
+        $("thrust-disp").textContent = e.target.value;
+      });
+      $("fuel").addEventListener("input", (e) => {
+        rocket.m_fuel = +e.target.value;
+        rocket.m_fuel_initial = +e.target.value;
+        $("fuel-disp").textContent = e.target.value;
+        if (!sim.running) sim.fuel = rocket.m_fuel;
+      });
+      $("dry").addEventListener("input", (e) => {
+        rocket.m_dry = +e.target.value;
+        $("dry-disp").textContent = e.target.value;
+      });
+      $("cd").addEventListener("input", (e) => {
+        rocket.Cd = +e.target.value / 100;
+        $("cd-disp").textContent = rocket.Cd.toFixed(2);
+      });
+      $("area").addEventListener("input", (e) => {
+        rocket.A = +e.target.value / 10;
+        $("area-disp").textContent = rocket.A.toFixed(1);
+      });
+
+      $("launch-btn").addEventListener("click", () => {
+        if (sim.running) return;
+        if (sim.done) resetSim();
+        sim.running = true;
+        document.getElementById("status-led").classList.add("live");
+        document.getElementById("status-text").textContent = "IN FLIGHT";
+      });
+      $("reset-btn").addEventListener("click", resetSim);
+
+      function resetSim() {
+        sim.running = false;
+        sim.done = false;
+        sim.h = 0;
+        sim.v = 0;
+        sim.a = 0;
+        sim.t = 0;
+        sim.fuel = rocket.m_fuel_initial;
+        sim.q = 0;
+        sim.drag = 0;
+        sim.maxQ = 0;
+        sim.maxQAlt = 0;
+        sim.history = [];
+        sim.hitMaxQ = false;
+        document.getElementById("status-led").classList.remove("live");
+        document.getElementById("status-text").textContent = "STANDBY";
+        updateTelemetry();
+      }
+
+      // ============================================================
+      // PHYSICS
+      // ============================================================
+      function gravity(h) {
+        const p = PLANETS[currentPlanet];
+        const hSafe = Math.max(0, h);
+        return p.g * Math.pow(p.R / (p.R + hSafe), 2);
+      }
+      function density(h) {
+        const p = PLANETS[currentPlanet];
+        if (p.rho0 === 0) return 0;
+        const hSafe = Math.max(0, h);
+        return p.rho0 * Math.exp(-hSafe / p.H);
+      }
+      function integrateSubstep(dtSub, thrustNow) {
+        if (dtSub <= 0) return 0;
+        const m = rocket.m_dry + sim.fuel;
+        const rho = density(sim.h);
+        const F_drag =
+          -0.5 * rho * rocket.Cd * rocket.A * sim.v * Math.abs(sim.v);
+        const g = gravity(sim.h);
+        const F_net = thrustNow + F_drag - m * g;
+        const a = F_net / m;
+        sim.v += a * dtSub;
+        sim.h += sim.v * dtSub;
+        // recompute q and drag from updated state for telemetry consistency
+        const rhoEnd = density(sim.h);
+        const qEnd = 0.5 * rhoEnd * sim.v * sim.v;
+        const F_dragEnd =
+          -0.5 * rhoEnd * rocket.Cd * rocket.A * sim.v * Math.abs(sim.v);
+        sim.q = qEnd;
+        sim.drag = Math.abs(F_dragEnd);
+        sim.a = a;
+        return qEnd;
+      }
+
+      function step(dt) {
+        const p = PLANETS[currentPlanet];
+        const flow = rocket.thrust / (rocket.Isp * 9.81);
+        let q;
+
+        if (sim.fuel > 0) {
+          const dt_burn = Math.min(dt, sim.fuel / flow);
+          q = integrateSubstep(dt_burn, rocket.thrust);
+          sim.fuel = Math.max(0, sim.fuel - flow * dt_burn);
+          const dt_coast = dt - dt_burn;
+          if (dt_coast > 0) {
+            q = Math.max(q, integrateSubstep(dt_coast, 0));
+          }
+        } else {
+          q = integrateSubstep(dt, 0);
+        }
+
+        // ground impact
+        if (sim.h < 0) {
+          sim.h = 0;
+          sim.v = 0;
+          sim.done = true;
+          sim.running = false;
+          document.getElementById("status-led").classList.remove("live");
+          document.getElementById("status-text").textContent = "GROUNDED";
+        }
+
+        sim.t += dt;
+
+        if (q > sim.maxQ) {
+          sim.maxQ = q;
+          sim.maxQAlt = sim.h;
+          sim.hitMaxQ = false;
+        }
+        if (
+          sim.history.length > 5 &&
+          q < sim.maxQ * 0.95 &&
+          !sim.hitMaxQ &&
+          sim.maxQ > 100
+        ) {
+          sim.hitMaxQ = true;
+          flashMaxQ();
+        }
+
+        sim.history.push({ t: sim.t, h: sim.h, v: sim.v, q: q });
+        if (sim.history.length > 2000) sim.history.shift();
+
+        if (
+          sim.h > p.spaceAlt * 4 ||
+          (sim.fuel <= 0 && sim.v < -1 && sim.h <= 0)
+        ) {
+          if (sim.h <= 0) {
+            sim.done = true;
+            sim.running = false;
+            document.getElementById("status-led").classList.remove("live");
+            document.getElementById("status-text").textContent = "LANDED";
+          }
+        }
+      }
+
+      function flashMaxQ() {
+        const wrap = document.getElementById("q-val-wrap");
+        const tag = document.createElement("span");
+        tag.className = "max-q-tag";
+        tag.textContent = "MAX-Q";
+        wrap.appendChild(tag);
+        setTimeout(() => tag.remove(), 3000);
+      }
+
+      // ============================================================
+      // TELEMETRY DISPLAY
+      // ============================================================
+      function fmt(n, digits = 0) {
+        if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(2) + "M";
+        if (Math.abs(n) >= 1e3) return (n / 1e3).toFixed(2) + "k";
+        return n.toFixed(digits);
+      }
+      function updateTelemetry() {
+        $("t-val").textContent = sim.t.toFixed(1);
+        $("h-val").textContent = fmt(sim.h);
+        $("v-val").textContent = fmt(sim.v, 1);
+        $("a-val").textContent = sim.a.toFixed(2);
+        $("q-val").textContent = fmt(sim.q);
+        $("d-val").textContent = fmt(sim.drag);
+        $("f-val").textContent = (
+          (sim.fuel / Math.max(1, rocket.m_fuel_initial)) *
+          100
+        ).toFixed(0);
+        $("maxq-val").textContent = fmt(sim.maxQ);
+        $("maxq-alt").textContent = fmt(sim.maxQAlt);
+      }
+
+      // ============================================================
+      // CANVAS RENDERING — main rocket view
+      // ============================================================
+      const canvas = document.getElementById("rocket-canvas");
+      const ctx = canvas.getContext("2d");
+
+      // Theme-aware chrome colors. The planet sky/surface stay physics-driven
+      // (atmosphere is not a UI choice), but ticks, the info panel, and chart
+      // axes follow the active theme.
+      let theme = readTheme();
+      function readTheme() {
+        const cs = getComputedStyle(document.documentElement);
+        const get = (name) => cs.getPropertyValue(name).trim();
+        return {
+          panelBg: get("--canvas-panel-bg"),
+          panelBorder: get("--canvas-panel-border"),
+          text: get("--canvas-text"),
+          textDim: get("--canvas-text-dim"),
+          grid: get("--canvas-grid"),
+        };
+      }
+      window.addEventListener("themechange", () => {
+        theme = readTheme();
+      });
+
+      function resizeCanvas() {
+        const r = canvas.getBoundingClientRect();
+        canvas.width = r.width * devicePixelRatio;
+        canvas.height = r.height * devicePixelRatio;
+        ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+      }
+      window.addEventListener("resize", resizeCanvas);
+
+      function drawScene() {
+        const p = PLANETS[currentPlanet];
+        const w = canvas.width / devicePixelRatio;
+        const h = canvas.height / devicePixelRatio;
+
+        // background gradient — atmosphere fade based on altitude shown
+        const viewMaxAlt = Math.max(p.spaceAlt * 1.2, sim.h * 1.3, 5000);
+        const ground_y = h - 30;
+
+        // sky gradient based on planet
+        const grad = ctx.createLinearGradient(0, 0, 0, ground_y);
+        grad.addColorStop(0, "#020613");
+        // mid color depends on planet's atmosphere
+        if (p.rho0 > 30)
+          grad.addColorStop(0.6, "#3a1e08"); // venus orange
+        else if (p.rho0 > 1)
+          grad.addColorStop(0.6, "#1a3556"); // earth blue / titan murky
+        else if (p.rho0 > 0.01)
+          grad.addColorStop(0.6, "#2a1410"); // mars rusty
+        else grad.addColorStop(0.6, "#050811"); // moon black
+        grad.addColorStop(1, p.surfaceColor);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, w, ground_y);
+
+        // ground
+        ctx.fillStyle = p.surfaceColor;
+        ctx.fillRect(0, ground_y, w, h - ground_y);
+        ctx.strokeStyle = p.accent;
+        ctx.globalAlpha = 0.4;
+        ctx.beginPath();
+        ctx.moveTo(0, ground_y);
+        ctx.lineTo(w, ground_y);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+
+        // altitude markers (ticks on right side)
+        ctx.strokeStyle = theme.panelBorder;
+        ctx.fillStyle = theme.textDim;
+        ctx.font = "12px JetBrains Mono";
+        ctx.textAlign = "right";
+        const tickInterval = pickTickInterval(viewMaxAlt);
+        for (let alt = 0; alt < viewMaxAlt; alt += tickInterval) {
+          const y = ground_y - (alt / viewMaxAlt) * (ground_y - 20);
+          ctx.beginPath();
+          ctx.moveTo(w - 60, y);
+          ctx.lineTo(w - 50, y);
+          ctx.stroke();
+          ctx.fillText(formatAlt(alt), w - 8, y + 4);
+        }
+
+        // space line (Kármán-equivalent)
+        const spaceY = ground_y - (p.spaceAlt / viewMaxAlt) * (ground_y - 20);
+        if (spaceY > 0) {
+          ctx.strokeStyle = "#06b6d4";
+          ctx.globalAlpha = 0.4;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.moveTo(0, spaceY);
+          ctx.lineTo(w - 70, spaceY);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = "#06b6d4";
+          ctx.textAlign = "left";
+          ctx.fillText(
+            "▲ TARGET (" + formatAlt(p.spaceAlt) + ")",
+            8,
+            spaceY - 4,
+          );
+        }
+
+        // rocket
+        const rocketX = w * 0.4;
+        const rocketY = ground_y - (sim.h / viewMaxAlt) * (ground_y - 20);
+        drawRocket(rocketX, rocketY, sim.fuel > 0 && sim.running);
+
+        // velocity arrow
+        if (Math.abs(sim.v) > 5) {
+          ctx.strokeStyle = sim.v > 0 ? "#10b981" : "#ef4444";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          const arrLen = Math.min(40, Math.abs(sim.v) / 10);
+          ctx.moveTo(rocketX + 30, rocketY);
+          ctx.lineTo(rocketX + 30, rocketY - Math.sign(sim.v) * arrLen);
+          ctx.stroke();
+          ctx.lineWidth = 1;
+        }
+
+        // status pane in top left
+        const paneX = 12;
+        const paneY = 12;
+        const paneW = 200;
+        const paneH = 80;
+        ctx.fillStyle = theme.panelBg;
+        ctx.fillRect(paneX, paneY, paneW, paneH);
+        ctx.strokeStyle = theme.panelBorder;
+        ctx.strokeRect(paneX, paneY, paneW, paneH);
+        ctx.fillStyle = theme.text;
+        ctx.font = "11px JetBrains Mono";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "alphabetic";
+        ctx.fillText("GRAVITY", paneX + 12, paneY + 22);
+        ctx.fillText("AIR DENSITY", paneX + 12, paneY + 44);
+        ctx.fillText("SCALE HEIGHT", paneX + 12, paneY + 66);
+        ctx.fillStyle = p.accent;
+        ctx.font = "bold 12px JetBrains Mono";
+        ctx.textAlign = "right";
+        ctx.fillText(p.g.toFixed(2) + " m/s²", paneX + paneW - 12, paneY + 22);
+        ctx.fillText(p.rho0.toFixed(2) + " kg/m³", paneX + paneW - 12, paneY + 44);
+        ctx.fillText((p.H / 1000).toFixed(1) + " km", paneX + paneW - 12, paneY + 66);
+      }
+
+      function drawRocket(x, y, burning) {
+        ctx.save();
+        ctx.translate(x, y);
+        // body
+        ctx.fillStyle = "#e8ecf3";
+        ctx.fillRect(-5, -20, 10, 26);
+        // nose cone
+        ctx.beginPath();
+        ctx.moveTo(-5, -20);
+        ctx.lineTo(0, -32);
+        ctx.lineTo(5, -20);
+        ctx.closePath();
+        ctx.fill();
+        // fins
+        ctx.fillStyle = "#9ca3af";
+        ctx.beginPath();
+        ctx.moveTo(-5, 6);
+        ctx.lineTo(-10, 10);
+        ctx.lineTo(-5, 0);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(5, 6);
+        ctx.lineTo(10, 10);
+        ctx.lineTo(5, 0);
+        ctx.fill();
+        // window
+        ctx.fillStyle = "#06b6d4";
+        ctx.beginPath();
+        ctx.arc(0, -14, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        // flame
+        if (burning) {
+          const fl = 12 + Math.random() * 8;
+          const grad = ctx.createLinearGradient(0, 6, 0, 6 + fl);
+          grad.addColorStop(0, "#fbbf24");
+          grad.addColorStop(0.5, "#f59e0b");
+          grad.addColorStop(1, "rgba(239,68,68,0.2)");
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.moveTo(-4, 6);
+          ctx.quadraticCurveTo(0, 6 + fl + 4, 4, 6);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      function pickTickInterval(viewMaxAlt) {
+        const candidates = [
+          100, 500, 1000, 5000, 10000, 25000, 50000, 100000, 250000, 500000,
+          1000000,
+        ];
+        for (const c of candidates) if (viewMaxAlt / c < 8) return c;
+        return 1000000;
+      }
+      function formatAlt(m) {
+        if (m >= 1000) return (m / 1000).toFixed(0) + "km";
+        return m.toFixed(0) + "m";
+      }
+
+      // ============================================================
+      // CHART RENDERING
+      // ============================================================
+      function drawChart(canvasId, dataKey, color, label) {
+        const c = document.getElementById(canvasId);
+        const cx = c.getContext("2d");
+        const r = c.getBoundingClientRect();
+        c.width = r.width * devicePixelRatio;
+        c.height = r.height * devicePixelRatio;
+        cx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+        const w = r.width,
+          h = r.height;
+
+        cx.clearRect(0, 0, w, h);
+
+        // grid
+        cx.strokeStyle = theme.grid;
+        cx.lineWidth = 1;
+        for (let i = 1; i < 4; i++) {
+          cx.beginPath();
+          cx.moveTo(0, (h * i) / 4);
+          cx.lineTo(w, (h * i) / 4);
+          cx.stroke();
+        }
+
+        if (sim.history.length < 2) return;
+        const maxT = Math.max(1, sim.history[sim.history.length - 1].t);
+        const maxV = Math.max(1, ...sim.history.map((d) => d[dataKey]));
+
+        cx.strokeStyle = color;
+        cx.lineWidth = 2;
+        cx.beginPath();
+        sim.history.forEach((d, i) => {
+          const x = (d.t / maxT) * w;
+          const y = h - (d[dataKey] / maxV) * (h - 8) - 4;
+          if (i === 0) cx.moveTo(x, y);
+          else cx.lineTo(x, y);
+        });
+        cx.stroke();
+
+        // axis labels
+        cx.fillStyle = theme.textDim;
+        cx.font = "11px JetBrains Mono";
+        cx.fillText("0", 4, h - 4);
+        cx.fillText(formatVal(maxV, dataKey), 4, 14);
+        cx.textAlign = "right";
+        cx.fillText(maxT.toFixed(0) + "s", w - 4, h - 4);
+        cx.textAlign = "left";
+      }
+      function formatVal(v, key) {
+        if (key === "h") return formatAlt(v);
+        if (key === "q") return fmt(v) + "Pa";
+        return v.toFixed(0);
+      }
+
+      // ============================================================
+      // MAIN LOOP
+      // ============================================================
+      let lastFrame = performance.now();
+      let accumulator = 0;
+      const SIM_DT = 0.05;
+      const SPEED_MULTIPLIER = 5;
+      const MAX_FRAME_DT = 0.1; // cap real-time delta to avoid spiral-of-death after tab-switch
+
+      function loop(now) {
+        const dtReal = Math.min(MAX_FRAME_DT, (now - lastFrame) / 1000);
+        lastFrame = now;
+        if (sim.running) {
+          accumulator += dtReal * SPEED_MULTIPLIER;
+          let safety = 0;
+          while (accumulator >= SIM_DT && safety < 200) {
+            step(SIM_DT);
+            accumulator -= SIM_DT;
+            safety++;
+            if (!sim.running) {
+              accumulator = 0;
+              break;
+            }
+          }
+        } else {
+          accumulator = 0;
+        }
+        drawScene();
+        drawChart("alt-chart", "h", "#f59e0b", "altitude");
+        drawChart("q-chart", "q", "#06b6d4", "q");
+        updateTelemetry();
+        requestAnimationFrame(loop);
+      }
+      resizeCanvas();
+      requestAnimationFrame(loop);
+    </script>
+    <script>
+      (function () {
+        var btn = document.getElementById("themeToggle");
+        if (!btn) return;
+        btn.addEventListener("click", function () {
+          var cur = document.documentElement.dataset.theme;
+          var next = cur === "light" ? "dark" : "light";
+          document.documentElement.dataset.theme = next;
+          localStorage.setItem("physicsLabTheme", next);
+          window.dispatchEvent(new CustomEvent("themechange", { detail: next }));
+        });
+      })();
+      (function () {
+        var btn = document.getElementById("focusToggle");
+        if (!btn) return;
+        btn.addEventListener("click", function () {
+          document.body.classList.toggle("sim-focus");
+          window.dispatchEvent(new Event("resize"));
+        });
+      })();
+    </script>
+  </body>
+</html>
