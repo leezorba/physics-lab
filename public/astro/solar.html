@@ -1,0 +1,1441 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🪐</text></svg>"
+    />
+    <title>Solar System Mission Simulator · Hwa's Physics Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/shared/lab.css" />
+    <style>
+      .solar-page .container {
+        max-width: 1400px;
+      }
+
+      .solar-page header {
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 24px;
+      }
+
+      .solar-page .mission-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 360px;
+        gap: 22px;
+        align-items: start;
+        margin-bottom: 24px;
+      }
+
+      .solar-page .setup-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+      }
+
+      .solar-page .sim-pane {
+        overflow: hidden;
+      }
+
+      .solar-page #solarCanvas {
+        height: min(62vw, 660px);
+        min-height: 440px;
+      }
+
+      .solar-page .button-row {
+        grid-template-columns: minmax(160px, 1fr) minmax(130px, auto);
+      }
+
+      .solar-page .zoom-row {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .solar-page .readout-stack {
+        display: grid;
+        gap: 10px;
+      }
+
+      .solar-page .mission-note {
+        border: 1px solid color-mix(in srgb, var(--amber) 28%, transparent);
+        border-radius: var(--radius);
+        background: color-mix(in srgb, var(--amber) 12%, transparent);
+        color: var(--text);
+        font-size: 0.9rem;
+        line-height: 1.5;
+        padding: 12px;
+      }
+
+      .solar-page .mission-note strong {
+        color: var(--amber);
+      }
+
+      .solar-page .mission-note p + p {
+        margin-top: 8px;
+      }
+
+      .solar-page .timeline-card {
+        margin-bottom: 24px;
+      }
+
+      .solar-page .timeline-rail {
+        position: relative;
+        display: flex;
+        min-height: 52px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+      }
+
+      .solar-page .timeline-segment {
+        min-width: 3px;
+        border-right: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+        background: color-mix(in srgb, var(--accent) 12%, transparent);
+      }
+
+      .solar-page .timeline-segment.is-active {
+        background: color-mix(in srgb, var(--accent) 32%, transparent);
+      }
+
+      .solar-page .timeline-progress {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: var(--accent);
+        box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent);
+      }
+
+      .solar-page .timeline-event {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 1px;
+        background: var(--text);
+        opacity: 0.65;
+      }
+
+      .solar-page .timeline-event.is-gap {
+        width: 2px;
+        background: var(--solar-residual);
+      }
+
+      .solar-page .event-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 8px;
+        margin-top: 14px;
+      }
+
+      .solar-page .event-chip {
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+        color: var(--text-dim);
+        font-family: var(--mono);
+        font-size: 0.74rem;
+        font-weight: 700;
+        line-height: 1.35;
+        padding: 8px 10px;
+      }
+
+      .solar-page .event-chip.is-next {
+        border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+        background: var(--surface-soft);
+        color: var(--accent);
+      }
+
+      .solar-page .delta-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .solar-page .delta-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 12px;
+        border-bottom: 1px dashed var(--border);
+        padding-bottom: 8px;
+        font-family: var(--mono);
+        font-size: 0.82rem;
+      }
+
+      .solar-page .delta-row:last-child {
+        border-bottom: 0;
+        padding-bottom: 0;
+      }
+
+      .solar-page .delta-row strong {
+        color: var(--text);
+        font-weight: 800;
+      }
+
+      .solar-page .footer-grid {
+        grid-template-columns: 1fr;
+      }
+
+      body.sim-focus .mission-side {
+        display: none;
+      }
+
+      @media (max-width: 1080px) {
+        .solar-page .mission-grid,
+        .solar-page .setup-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+    <script>
+      (function () {
+        var stored = localStorage.getItem("physicsLabTheme");
+        document.documentElement.dataset.theme = stored === "light" ? "light" : "dark";
+      })();
+    </script>
+  </head>
+  <body class="sim-page solar-page">
+    <button
+      class="theme-toggle"
+      id="themeToggle"
+      type="button"
+      aria-label="Toggle color theme"
+      title="Toggle color theme"
+    >
+      <span class="theme-icon theme-icon-dark" aria-hidden="true">◑</span>
+      <span class="theme-icon theme-icon-light" aria-hidden="true">◐</span>
+    </button>
+
+    <div class="container sim-container">
+      <a class="back-link" href="/">← Back to Lab</a>
+
+      <header>
+        <div class="badge">SANDBOX // V3.0</div>
+        <h1>Solar System <span class="accent">Mission Simulator</span></h1>
+        <p class="subtitle">
+          Pick a destination and mission profile, then watch a precomputed
+          patched-conic transfer play out across real mission time.
+        </p>
+      </header>
+
+      <section class="control-band" aria-label="Mission setup">
+        <div class="setup-grid">
+          <div>
+            <div class="band-header">
+              <div>
+                <div class="band-title">Destination</div>
+              </div>
+            </div>
+            <div class="tabs" id="destinationControls" role="group" aria-label="Destination">
+              <button class="tab-button active" type="button" data-destination="mars">Mars</button>
+              <button class="tab-button" type="button" data-destination="venus">Venus</button>
+              <button class="tab-button" type="button" data-destination="moon">Moon</button>
+            </div>
+          </div>
+
+          <div>
+            <div class="band-header">
+              <div>
+                <div class="band-title">Mission type</div>
+              </div>
+            </div>
+            <div class="tabs" id="missionControls" role="group" aria-label="Mission type">
+              <button class="tab-button" type="button" data-mission="flyby">Flyby</button>
+              <button class="tab-button active" type="button" data-mission="orbit_return">Orbit and return</button>
+              <button class="tab-button" type="button" data-mission="touch_return">Touch and return</button>
+            </div>
+          </div>
+
+          <div>
+            <div class="band-header">
+              <div>
+                <div class="band-title">Playback</div>
+              </div>
+              <span class="status-pill" id="planStatus">READY</span>
+            </div>
+            <div class="range-row">
+              <div class="range-label">
+                <span>Dwell speed</span>
+                <output id="speedOutput">100,000×</output>
+              </div>
+              <input
+                type="range"
+                id="speedSlider"
+                min="0"
+                max="7"
+                value="5"
+                step="1"
+                aria-label="Time acceleration"
+              />
+            </div>
+            <div class="button-row">
+              <button class="btn btn-launch" id="launchBtn" type="button">Plan and launch</button>
+              <button class="btn btn-reset" id="skipBtn" type="button" disabled>Skip event</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="mission-grid workspace">
+        <section class="sim-pane" aria-label="Mission canvas">
+          <button
+            class="focus-toggle"
+            id="focusToggle"
+            type="button"
+            aria-label="Toggle focus mode"
+            title="Toggle focus mode"
+          >
+            <svg
+              class="focus-icon focus-icon-expand"
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              width="22"
+              height="22"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+              <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+              <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+              <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+            </svg>
+            <svg
+              class="focus-icon focus-icon-collapse"
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              width="22"
+              height="22"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M8 3v3a2 2 0 0 1-2 2H3" />
+              <path d="M21 8h-3a2 2 0 0 1-2-2V3" />
+              <path d="M3 16h3a2 2 0 0 1 2 2v3" />
+              <path d="M16 21v-3a2 2 0 0 1 2-2h3" />
+            </svg>
+          </button>
+          <div class="pane-label">
+            MISSION VIEW
+            <span id="viewLabel" style="color: var(--amber); margin-left: 8px">SYSTEM</span>
+          </div>
+          <canvas id="solarCanvas" width="1000" height="660" aria-label="Solar system mission canvas"></canvas>
+        </section>
+
+        <aside class="mission-side">
+          <section class="telemetry-card">
+            <div class="telemetry-title">
+              <span><span class="led" id="statusLed"></span>MISSION</span>
+              <span id="segmentLabel">STANDBY</span>
+            </div>
+            <div class="readout-stack">
+              <div class="telem-row">
+                <span class="telem-label">Elapsed</span>
+                <span class="telem-value"><span id="elapsedValue">0 d</span></span>
+              </div>
+              <div class="telem-row">
+                <span class="telem-label">Remaining</span>
+                <span class="telem-value"><span id="remainingValue">0 d</span></span>
+              </div>
+              <div class="telem-row">
+                <span class="telem-label">Speed</span>
+                <span class="telem-value"><span id="effectiveSpeed">100,000×</span></span>
+              </div>
+              <div class="telem-row">
+                <span class="telem-label">Total Δv</span>
+                <span class="telem-value"><span id="totalDv">0.000</span><span class="telem-unit">km/s</span></span>
+              </div>
+            </div>
+            <div class="zoom-row" role="group" aria-label="Zoom level">
+              <button class="tab-button active" type="button" data-zoom="system">System</button>
+              <button class="tab-button" type="button" data-zoom="soi">SOI</button>
+              <button class="tab-button" type="button" data-zoom="local">Local</button>
+            </div>
+            <div class="toggle-row">
+              <label for="scaleToggle">
+                True scale
+                <small>Planet radii use real distance ratios.</small>
+              </label>
+              <span class="switch">
+                <input id="scaleToggle" type="checkbox" />
+                <span class="slider"></span>
+              </span>
+            </div>
+          </section>
+
+          <section class="telemetry-card">
+            <div class="telemetry-title">
+              <span>Closure</span>
+              <span id="closureState">UNPLANNED</span>
+            </div>
+            <div id="closureReadout" class="mission-note">
+              <strong>No mission loaded.</strong> Plan a trajectory to see return geometry.
+            </div>
+          </section>
+
+          <section class="telemetry-card">
+            <div class="telemetry-title">
+              <span>Δv budget</span>
+              <span id="maneuverCount">0 BURNS</span>
+            </div>
+            <div id="deltaList" class="delta-list"></div>
+          </section>
+        </aside>
+      </div>
+
+      <section class="control-band timeline-card" aria-label="Mission timeline">
+        <div class="band-header">
+          <div>
+            <div class="band-title">Mission timeline</div>
+          </div>
+          <span id="timelineTotal" class="status-pill near">0 d</span>
+        </div>
+        <div class="timeline-rail" id="timelineRail">
+          <div class="timeline-progress" id="timelineProgress" style="left: 0%"></div>
+        </div>
+        <div class="event-list" id="eventList"></div>
+      </section>
+
+      <section class="footer-grid" aria-label="Model notes">
+        <section class="footer-section">
+          <h2><span class="num">01</span>Core Equations</h2>
+          <div class="equation-grid">
+            <div class="equation">
+              <h4>VIS-VIVA</h4>
+              <p><code>v² = μ(2/r − 1/a)</code></p>
+              <p>Connects orbital speed to distance from the attracting body and the transfer ellipse size.</p>
+            </div>
+            <div class="equation">
+              <h4>HOHMANN TIME</h4>
+              <p><code>T = π√(a_t³/μ)</code></p>
+              <p>A one-way transfer is half of the transfer ellipse period.</p>
+            </div>
+            <div class="equation">
+              <h4>SOI RADIUS</h4>
+              <p><code>r_SOI = R(m/M)^(2/5)</code></p>
+              <p>The patched-conic boundary where the simulation switches the active gravity source.</p>
+            </div>
+            <div class="equation">
+              <h4>ESCAPE BURN</h4>
+              <p><code>Δv = √(v∞² + 2μ/r) − √(μ/r)</code></p>
+              <p>The impulse needed to leave a circular parking orbit with a chosen hyperbolic excess speed.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="footer-section">
+          <h2><span class="num">02</span>Glossary</h2>
+          <div class="glossary-grid">
+            <div class="glossary-item">
+              <h4>Patched conics</h4>
+              <p>One-body-at-a-time orbital modeling. The craft follows Earth, Sun, target, or Moon gravity depending on which sphere of influence it is inside.</p>
+            </div>
+            <div class="glossary-item">
+              <h4>Synodic wait</h4>
+              <p>The time spent waiting for Earth and the target planet to line up for the return Hohmann transfer. This is why Mars round trips are roughly 2.5 years.</p>
+            </div>
+            <div class="glossary-item">
+              <h4>Loose flyby closure</h4>
+              <p>Flybys do not get a free wait or hidden correction burn. The craft may cross Earth's orbit ahead of or behind Earth.</p>
+            </div>
+            <div class="glossary-item">
+              <h4>Impulsive Δv</h4>
+              <p>Burns are modeled as instantaneous velocity changes. Real engines burn over minutes and incur losses this version does not model.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="footer-section">
+          <h2><span class="num">03</span>Scope and Limitations</h2>
+          <p>
+            The planets are coplanar and circular, the view is 2D, and the trajectory is precomputed. This version has no manual piloting, fuel mass, inclination, low-energy transfers, aerocapture, atmospheric entry, or N-body perturbations.
+          </p>
+          <p>
+            Flyby missions do not naturally close on Earth. Pure two-body flybys have no degree of freedom to wait for the return launch window, so this simulator reports the angular offset instead of faking a closed loop. Real free-return trajectories, including Apollo-style lunar returns, use carefully tuned non-Hohmann geometry that is out of scope here.
+          </p>
+          <p>
+            Orbit-return and touch-return missions may show a residual gap at Earth arrival. That dotted marker is an integration drift artifact from the simplified propagation, not a planned maneuver or a closed-loop claim.
+          </p>
+          <p>
+            Earth arrival speed is shown as an energy/safety marker. It is not included in total Δv because this version stops at Earth-return geometry and does not model atmospheric reentry, aerocapture, or propulsive Earth-orbit capture.
+          </p>
+          <p>
+            Touch-and-return descent and ascent are approximate Δv taxes, not surface mission simulations. Planet sizes are exaggerated by default so they remain visible at solar-system scale; true scale makes most bodies collapse to tiny dots.
+          </p>
+        </section>
+      </section>
+    </div>
+
+    <footer class="site-credits">
+      Built by Hwa Lee ·
+      <a href="https://github.com/leezorba/physics-lab" rel="noopener" aria-label="GitHub (link coming soon)">GitHub</a>
+    </footer>
+
+    <script type="module">
+      import {
+        CONSTANTS,
+        circularOrbitState,
+        hohmannPhaseAngle,
+        planMission
+      } from "/shared/orbital.js";
+
+      const SPEED_STOPS = [1, 10, 100, 1000, 10000, 100000, 1000000, 10000000];
+      const DEFAULT_SPEED = 100000;
+      const DEFAULT_SPEED_INDEX = SPEED_STOPS.indexOf(DEFAULT_SPEED);
+      const EVENT_SPEED_CAP = 50000;
+      const SOI_WALL_LOOKAHEAD_SECONDS = 30;
+      const RAMP_SECONDS = 0.5;
+      const PARKING_ALTITUDE = 400;
+      const EVENT_SEGMENTS = new Set([
+        "earth_departure",
+        "capture",
+        "departure",
+        "descent",
+        "ascent",
+        "flyby_arc",
+        "moon_flyby",
+        "loi_capture",
+        "tei_departure"
+      ]);
+      const LOCAL_SEGMENTS = new Set([
+        "target_orbit",
+        "target_wait",
+        "moon_orbit",
+        "moon_wait",
+        "descent",
+        "ascent",
+        "surface_dwell"
+      ]);
+      const SYSTEM_SEGMENTS = new Set([
+        "heliocentric_outbound",
+        "heliocentric_return",
+        "translunar_coast",
+        "translunar_return",
+        "earth_departure",
+        "earth_arrival"
+      ]);
+      const TARGET_LABELS = {
+        mars: "Mars",
+        venus: "Venus",
+        moon: "Moon"
+      };
+      const MISSION_LABELS = {
+        flyby: "Flyby",
+        orbit_return: "Orbit and return",
+        touch_return: "Touch and return"
+      };
+      const SEGMENT_LABELS = {
+        earth_departure: "Earth departure",
+        heliocentric_outbound: "Outbound heliocentric coast",
+        translunar_coast: "Translunar coast",
+        flyby_arc: "Flyby arc",
+        moon_flyby: "Moon flyby",
+        heliocentric_return: "Return heliocentric coast",
+        translunar_return: "Translunar return",
+        capture: "Capture burn",
+        loi_capture: "LOI capture burn",
+        target_orbit: "Target parking orbit",
+        moon_orbit: "Moon parking orbit",
+        target_wait: "Return-window wait",
+        moon_wait: "Moon wait marker",
+        descent: "Descent burn",
+        surface_dwell: "Surface dwell",
+        ascent: "Ascent burn",
+        departure: "Departure burn",
+        tei_departure: "TEI departure burn",
+        earth_arrival: "Earth arrival marker"
+      };
+
+      const canvas = document.getElementById("solarCanvas");
+      const ctx = canvas.getContext("2d");
+      const destinationControls = document.getElementById("destinationControls");
+      const missionControls = document.getElementById("missionControls");
+      const speedSlider = document.getElementById("speedSlider");
+      const speedOutput = document.getElementById("speedOutput");
+      const launchBtn = document.getElementById("launchBtn");
+      const skipBtn = document.getElementById("skipBtn");
+      const planStatus = document.getElementById("planStatus");
+      const statusLed = document.getElementById("statusLed");
+      const segmentLabel = document.getElementById("segmentLabel");
+      const elapsedValue = document.getElementById("elapsedValue");
+      const remainingValue = document.getElementById("remainingValue");
+      const effectiveSpeed = document.getElementById("effectiveSpeed");
+      const totalDv = document.getElementById("totalDv");
+      const closureState = document.getElementById("closureState");
+      const closureReadout = document.getElementById("closureReadout");
+      const deltaList = document.getElementById("deltaList");
+      const maneuverCount = document.getElementById("maneuverCount");
+      const timelineRail = document.getElementById("timelineRail");
+      const timelineProgress = document.getElementById("timelineProgress");
+      const timelineTotal = document.getElementById("timelineTotal");
+      const eventList = document.getElementById("eventList");
+      const scaleToggle = document.getElementById("scaleToggle");
+      const zoomButtons = Array.from(document.querySelectorAll("[data-zoom]"));
+      const viewLabel = document.getElementById("viewLabel");
+
+      const state = {
+        destination: "mars",
+        missionType: "orbit_return",
+        plan: null,
+        playbackSegments: [],
+        events: [],
+        missionTime: 0,
+        playbackDuration: 0,
+        running: false,
+        rafId: null,
+        lastFrame: 0,
+        dwellSpeed: DEFAULT_SPEED,
+        effectiveSpeed: DEFAULT_SPEED,
+        currentZoom: "system",
+        manualZoom: null,
+        trueScale: false,
+        phase: {},
+        theme: {},
+        marsProfileMs: null,
+        useRenderStride: false
+      };
+
+      function cssToken(name) {
+        return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      }
+
+      function readTheme() {
+        state.theme = {
+          bg: cssToken("--canvas-bg"),
+          grid: cssToken("--canvas-grid"),
+          text: cssToken("--canvas-text"),
+          textDim: cssToken("--canvas-text-dim"),
+          panelBg: cssToken("--canvas-panel-bg"),
+          panelBorder: cssToken("--canvas-panel-border"),
+          rule: cssToken("--canvas-rule"),
+          sun: cssToken("--solar-sun"),
+          earth: cssToken("--solar-earth"),
+          mars: cssToken("--solar-mars"),
+          venus: cssToken("--solar-venus"),
+          moon: cssToken("--solar-moon"),
+          craft: cssToken("--solar-spacecraft"),
+          transfer: cssToken("--solar-transfer"),
+          return: cssToken("--solar-return"),
+          soi: cssToken("--solar-soi"),
+          residual: cssToken("--solar-residual")
+        };
+      }
+
+      function setupCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        const ratio = window.devicePixelRatio || 1;
+        canvas.width = Math.round(rect.width * ratio);
+        canvas.height = Math.round(rect.height * ratio);
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        drawScene();
+      }
+
+      function formatNumber(value, digits = 0) {
+        return Number(value).toLocaleString(undefined, {
+          maximumFractionDigits: digits,
+          minimumFractionDigits: digits
+        });
+      }
+
+      function formatSpeed(value) {
+        return `${formatNumber(Math.round(value))}×`;
+      }
+
+      function formatDuration(seconds) {
+        if (!Number.isFinite(seconds) || seconds <= 0) return "0 d";
+        const days = seconds / 86400;
+        if (days >= 2) return `${formatNumber(days, days >= 100 ? 0 : 1)} d`;
+        const hours = seconds / 3600;
+        if (hours >= 2) return `${formatNumber(hours, 1)} h`;
+        return `${formatNumber(seconds / 60, 1)} min`;
+      }
+
+      function formatKm(value) {
+        const abs = Math.abs(value);
+        if (abs >= 1000000) return formatNumber(value / 1000000, 2) + "M";
+        if (abs >= 1000) return formatNumber(value / 1000, 1) + "k";
+        return formatNumber(value, 0);
+      }
+
+      function formatDegrees(rad) {
+        return formatNumber(Math.abs(rad * 180 / Math.PI), 1);
+      }
+
+      function selectButton(group, attr, value) {
+        Array.from(group.querySelectorAll("button")).forEach((button) => {
+          button.classList.toggle("active", button.dataset[attr] === value);
+        });
+      }
+
+      function targetPhase(destination) {
+        if (destination === "moon") {
+          const originParkingRadius = CONSTANTS.earth.radius + PARKING_ALTITUDE;
+          return hohmannPhaseAngle(originParkingRadius, CONSTANTS.moon.orbitRadius, CONSTANTS.earth.mu);
+        }
+        return hohmannPhaseAngle(CONSTANTS.earth.orbitRadius, CONSTANTS[destination].orbitRadius, CONSTANTS.sun.mu);
+      }
+
+      function bodyPosition(bodyKey, t) {
+        if (bodyKey === "sun") return [0, 0];
+        if (bodyKey === "earth") {
+          return state.destination === "moon"
+            ? [0, 0]
+            : circularOrbitState(CONSTANTS.earth.orbitRadius, CONSTANTS.sun.mu, t, 0).r;
+        }
+        if (bodyKey === "moon") {
+          return circularOrbitState(CONSTANTS.moon.orbitRadius, CONSTANTS.earth.mu, t, state.phase.moon ?? targetPhase("moon")).r;
+        }
+        return circularOrbitState(
+          CONSTANTS[bodyKey].orbitRadius,
+          CONSTANTS.sun.mu,
+          t,
+          state.phase[bodyKey] ?? targetPhase(bodyKey)
+        ).r;
+      }
+
+      function add(a, b) {
+        return [a[0] + b[0], a[1] + b[1]];
+      }
+
+      function sub(a, b) {
+        return [a[0] - b[0], a[1] - b[1]];
+      }
+
+      function lerp(a, b, f) {
+        return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
+      }
+
+      function magnitude(p) {
+        return Math.hypot(p[0], p[1]);
+      }
+
+      function buildPlayback(plan) {
+        const playbackSegments = [];
+        const events = [];
+        let sourceCursor = 0;
+        let displayCursor = 0;
+
+        plan.segments.forEach((segment, index) => {
+          const suppressResidualDuration = segment.type === "earth_arrival" && segment.closureMarker === "residual_gap";
+          const displayDuration = suppressResidualDuration ? 0 : segment.duration;
+          playbackSegments.push({
+            index,
+            segment,
+            sourceStart: sourceCursor,
+            sourceEnd: sourceCursor + segment.duration,
+            displayStart: displayCursor,
+            displayEnd: displayCursor + displayDuration,
+            displayDuration
+          });
+          sourceCursor += segment.duration;
+          displayCursor += displayDuration;
+        });
+
+        const playbackDuration = displayCursor;
+        plan.events.forEach((event) => {
+          events.push({
+            ...event,
+            displayT: event.label === "Earth arrival" ? playbackDuration : Math.min(event.t, playbackDuration)
+          });
+        });
+
+        const arrival = getArrivalSegment(plan);
+        if (arrival?.closureMarker === "residual_gap") {
+          events.push({
+            t: playbackDuration,
+            displayT: playbackDuration,
+            label: "residual gap",
+            isGap: true
+          });
+        }
+
+        return { playbackSegments, events, playbackDuration };
+      }
+
+      function getArrivalSegment(plan = state.plan) {
+        return plan?.segments.find((segment) => segment.type === "earth_arrival");
+      }
+
+      function activeEntry(time = state.missionTime) {
+        if (!state.playbackSegments.length) return null;
+        const nonZero = state.playbackSegments.find((entry) => {
+          return entry.displayDuration > 0 && time >= entry.displayStart && time <= entry.displayEnd;
+        });
+        if (nonZero) return nonZero;
+        return [...state.playbackSegments].reverse().find((entry) => time >= entry.displayStart) || state.playbackSegments[0];
+      }
+
+      function activeSegmentLabel() {
+        const entry = activeEntry();
+        if (!entry) return "STANDBY";
+        const event = nextEvent(0);
+        const nearEvent = event && Math.abs(event.displayT - state.missionTime) < state.effectiveSpeed * 4;
+        if (nearEvent) return event.label.toUpperCase();
+        return (SEGMENT_LABELS[entry.segment.type] || entry.segment.type).toUpperCase();
+      }
+
+      function nextEvent(offsetSeconds = 1) {
+        return state.events.find((event) => event.displayT > state.missionTime + offsetSeconds);
+      }
+
+      function previousEvent() {
+        return [...state.events].reverse().find((event) => event.displayT <= state.missionTime);
+      }
+
+      function setDwellSpeed(index) {
+        state.dwellSpeed = SPEED_STOPS[Number(index)];
+        speedOutput.textContent = formatSpeed(state.dwellSpeed);
+      }
+
+      function eventPhaseReason(time) {
+        const entry = activeEntry(time);
+        if (entry && EVENT_SEGMENTS.has(entry.segment.type)) {
+          return SEGMENT_LABELS[entry.segment.type] || entry.segment.type;
+        }
+
+        return "";
+      }
+
+      function targetSpeedFor(time) {
+        const reason = eventPhaseReason(time);
+        return {
+          value: reason ? Math.min(state.dwellSpeed, EVENT_SPEED_CAP) : state.dwellSpeed,
+          reason
+        };
+      }
+
+      function autoZoom(time) {
+        if (state.manualZoom) return state.manualZoom;
+        const entry = activeEntry(time);
+        const type = entry?.segment.type;
+
+        /*
+          Stage 3c zoom snap rule:
+          - System view during heliocentric/translunar coast and Earth parking markers.
+          - SOI view begins about 30 seconds of wall-clock time before an SOI crossing event.
+          - Local view owns target orbit, target wait, descent, ascent, and surface dwell.
+          Manual buttons override this discrete snap until the next plan is launched.
+        */
+        const soiLookahead = Math.max(state.effectiveSpeed, EVENT_SPEED_CAP) * SOI_WALL_LOOKAHEAD_SECONDS;
+        const upcomingSoi = state.events.find((event) => {
+          return /SOI crossing/i.test(event.label) &&
+            event.displayT >= time &&
+            event.displayT - time <= soiLookahead;
+        });
+        if (upcomingSoi || type === "flyby_arc" || type === "moon_flyby") return "soi";
+        if (LOCAL_SEGMENTS.has(type)) return "local";
+        if (SYSTEM_SEGMENTS.has(type)) return "system";
+        return "system";
+      }
+
+      function segmentPoint(entry, time) {
+        const points = pointsForSegment(entry.segment);
+        if (points.length === 0) return entry.segment.endState.r;
+        if (points.length === 1 || entry.displayDuration <= 0) return points[points.length - 1];
+        const fraction = Math.max(0, Math.min(1, (time - entry.displayStart) / entry.displayDuration));
+        const scaled = fraction * (points.length - 1);
+        const i = Math.min(points.length - 2, Math.floor(scaled));
+        return lerp(points[i], points[i + 1], scaled - i);
+      }
+
+      function pointsForSegment(segment) {
+        const arrival = getArrivalSegment();
+        const hasFallback = Boolean(arrival?.returnPropagationNote);
+        if (hasFallback && (segment.type === "flyby_arc" || segment.type === "moon_flyby") && segment.points.length > 2) {
+          return segment.points.slice(0, -1);
+        }
+        return segment.points;
+      }
+
+      function pointTime(entry, index, count) {
+        if (entry.displayDuration <= 0 || count <= 1) return entry.displayStart;
+        return entry.displayStart + entry.displayDuration * (index / (count - 1));
+      }
+
+      function toSystemFrame(point, segment, t) {
+        if (state.destination === "moon") {
+          if (segment.frame === "moon-centric") return add(point, bodyPosition("moon", t));
+          return point;
+        }
+
+        if (segment.frame === "heliocentric") return point;
+        if (segment.frame === "target-centric") return add(point, bodyPosition(state.destination, t));
+        if (segment.frame === "geocentric") return add(point, bodyPosition("earth", t));
+        return point;
+      }
+
+      function toTargetFrame(point, segment, t) {
+        if (state.destination === "moon") {
+          if (segment.frame === "moon-centric") return point;
+          return sub(point, bodyPosition("moon", t));
+        }
+
+        if (segment.frame === "target-centric") return point;
+        if (segment.frame === "heliocentric") return sub(point, bodyPosition(state.destination, t));
+        if (segment.frame === "geocentric") {
+          return sub(add(point, bodyPosition("earth", t)), bodyPosition(state.destination, t));
+        }
+        return point;
+      }
+
+      function pointForView(point, segment, t, viewMode) {
+        return viewMode === "system" ? toSystemFrame(point, segment, t) : toTargetFrame(point, segment, t);
+      }
+
+      function viewContext(viewMode) {
+        const rect = canvas.getBoundingClientRect();
+        const w = rect.width;
+        const h = rect.height;
+        const target = CONSTANTS[state.destination];
+        let range;
+
+        if (viewMode === "system") {
+          range = state.destination === "moon"
+            ? CONSTANTS.moon.orbitRadius * 1.28
+            : Math.max(CONSTANTS.earth.orbitRadius, target.orbitRadius) * 1.18;
+        } else if (viewMode === "soi") {
+          range = target.soi * 1.18;
+        } else {
+          range = Math.max(target.radius * 6, (target.radius + PARKING_ALTITUDE) * 3.2);
+        }
+
+        const scale = Math.min(w, h) * 0.45 / range;
+        return {
+          w,
+          h,
+          scale,
+          range,
+          center: [0, 0],
+          project(point) {
+            return [
+              w / 2 + (point[0] - this.center[0]) * scale,
+              h / 2 - (point[1] - this.center[1]) * scale
+            ];
+          }
+        };
+      }
+
+      function visiblePoint(px, py, margin = 24) {
+        const rect = canvas.getBoundingClientRect();
+        return px >= -margin && px <= rect.width + margin && py >= -margin && py <= rect.height + margin;
+      }
+
+      function renderStride(pointCount, zoomMode) {
+        if (!state.useRenderStride && pointCount <= 25000) return 1;
+        const cap = zoomMode === "system" ? 6500 : zoomMode === "soi" ? 4200 : 2800;
+        return Math.max(1, Math.ceil(pointCount / cap));
+      }
+
+      function drawCircle(view, center, radiusKm, color, options = {}) {
+        const p = view.project(center);
+        const radiusPx = Math.max(options.minPx ?? 0, radiusKm * view.scale);
+        if (!visiblePoint(p[0], p[1], radiusPx + 20)) return;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(p[0], p[1], radiusPx, 0, Math.PI * 2);
+        if (options.dash) ctx.setLineDash(options.dash);
+        ctx.lineWidth = options.lineWidth ?? 1.2;
+        ctx.strokeStyle = color;
+        if (options.fill) {
+          ctx.fillStyle = color;
+          ctx.fill();
+        }
+        if (options.stroke !== false) ctx.stroke();
+        ctx.restore();
+      }
+
+      function bodyRadius(bodyKey, viewMode) {
+        const body = bodyKey === "sun" ? { radius: 696340 } : CONSTANTS[bodyKey];
+        if (state.trueScale) return body.radius;
+        if (viewMode === "system") {
+          const multipliers = { sun: 14, earth: 120, mars: 170, venus: 130, moon: 90 };
+          return body.radius * (multipliers[bodyKey] || 120);
+        }
+        if (viewMode === "soi") return body.radius * 4;
+        return body.radius;
+      }
+
+      function drawLabel(text, point, view, color = state.theme.text) {
+        const [x, y] = view.project(point);
+        if (!visiblePoint(x, y, 80)) return;
+        ctx.save();
+        ctx.font = "700 11px JetBrains Mono, monospace";
+        ctx.fillStyle = color;
+        ctx.fillText(text, x + 9, y - 9);
+        ctx.restore();
+      }
+
+      function drawWorlds(view, viewMode) {
+        ctx.save();
+        ctx.strokeStyle = state.theme.rule;
+        ctx.lineWidth = 1;
+
+        if (viewMode === "system") {
+          if (state.destination === "moon") {
+            drawCircle(view, [0, 0], CONSTANTS.moon.orbitRadius, state.theme.rule, { stroke: true });
+            drawCircle(view, [0, 0], bodyRadius("earth", viewMode), state.theme.earth, { fill: true, stroke: false, minPx: state.trueScale ? 0.6 : 8 });
+            drawLabel("Earth", [0, 0], view, state.theme.earth);
+            const moon = bodyPosition("moon", state.missionTime);
+            drawCircle(view, moon, bodyRadius("moon", viewMode), state.theme.moon, { fill: true, stroke: false, minPx: state.trueScale ? 0.5 : 7 });
+            drawCircle(view, moon, CONSTANTS.moon.soi, state.theme.soi, { dash: [4, 7], lineWidth: 1 });
+            drawLabel("Moon", moon, view, state.theme.moon);
+          } else {
+            drawCircle(view, [0, 0], CONSTANTS.earth.orbitRadius, state.theme.rule, { stroke: true });
+            drawCircle(view, [0, 0], CONSTANTS[state.destination].orbitRadius, state.theme.rule, { stroke: true });
+            drawCircle(view, [0, 0], bodyRadius("sun", viewMode), state.theme.sun, { fill: true, stroke: false, minPx: state.trueScale ? 1 : 12 });
+            drawLabel("Sun", [0, 0], view, state.theme.sun);
+            const earth = bodyPosition("earth", state.missionTime);
+            const target = bodyPosition(state.destination, state.missionTime);
+            drawCircle(view, earth, bodyRadius("earth", viewMode), state.theme.earth, { fill: true, stroke: false, minPx: state.trueScale ? 0.5 : 7 });
+            drawCircle(view, target, bodyRadius(state.destination, viewMode), state.theme[state.destination], { fill: true, stroke: false, minPx: state.trueScale ? 0.5 : 8 });
+            drawLabel("Earth", earth, view, state.theme.earth);
+            drawLabel(TARGET_LABELS[state.destination], target, view, state.theme[state.destination]);
+          }
+        } else {
+          const targetKey = state.destination;
+          const target = CONSTANTS[targetKey];
+          drawCircle(view, [0, 0], target.soi, state.theme.soi, { dash: [5, 8], lineWidth: viewMode === "soi" ? 1.4 : 0.8 });
+          drawCircle(view, [0, 0], target.radius + PARKING_ALTITUDE, state.theme.rule, { dash: [3, 7], lineWidth: 1 });
+          drawCircle(view, [0, 0], bodyRadius(targetKey, viewMode), state.theme[targetKey], { fill: true, stroke: false, minPx: state.trueScale ? 0.6 : 12 });
+          drawLabel(TARGET_LABELS[targetKey], [0, 0], view, state.theme[targetKey]);
+        }
+        ctx.restore();
+      }
+
+      function segmentColor(segment) {
+        if (/return|earth_arrival/.test(segment.type)) return state.theme.return;
+        if (/flyby/.test(segment.type)) return state.theme.soi;
+        if (segment.deltaV > 0 || /descent|ascent|capture|departure/.test(segment.type)) return state.theme.craft;
+        return state.theme.transfer;
+      }
+
+      function drawSegmentPath(entry, view, viewMode) {
+        const segment = entry.segment;
+        if (segment.type === "earth_arrival") return;
+        if (viewMode !== "system") {
+          const type = segment.type;
+          if (!LOCAL_SEGMENTS.has(type) && !EVENT_SEGMENTS.has(type) && !/coast|outbound|return/.test(type)) return;
+        }
+        const points = pointsForSegment(segment);
+        if (points.length < 2) return;
+        const stride = renderStride(points.length, viewMode);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.strokeStyle = segmentColor(segment);
+        ctx.lineWidth = entry === activeEntry() ? 2.2 : 1.15;
+        ctx.globalAlpha = entry === activeEntry() ? 0.95 : 0.38;
+
+        let moved = false;
+        for (let i = 0; i < points.length; i += stride) {
+          if (i !== points.length - 1 && points.length - 1 - i < stride) continue;
+          const t = pointTime(entry, i, points.length);
+          const p = pointForView(points[i], segment, t, viewMode);
+          const [x, y] = view.project(p);
+          if (!visiblePoint(x, y, 70)) {
+            moved = false;
+            continue;
+          }
+          if (!moved) {
+            ctx.moveTo(x, y);
+            moved = true;
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function drawResidualGap(view, viewMode) {
+        const arrival = getArrivalSegment();
+        if (!arrival || arrival.closureMarker !== "residual_gap") return;
+        if (viewMode !== "system") return;
+        const returnEntry = state.playbackSegments.find((entry) => {
+          return entry.index === state.plan.segments.findIndex((segment) => segment === arrival) - 1;
+        });
+        if (!returnEntry) return;
+        const returnEnd = returnEntry.segment.endState.r;
+        const t = state.playbackDuration;
+        const endpoint = state.destination === "moon" ? returnEnd : returnEnd;
+        const earthPoint = state.destination === "moon" ? [0, 0] : bodyPosition("earth", t);
+        const a = view.project(endpoint);
+        const b = view.project(earthPoint);
+
+        ctx.save();
+        ctx.setLineDash([2, 7]);
+        ctx.strokeStyle = state.theme.residual;
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(a[0], a[1]);
+        ctx.lineTo(b[0], b[1]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = state.theme.residual;
+        ctx.font = "700 11px JetBrains Mono, monospace";
+        const label = `residual gap: ${formatKm(arrival.closureGapDistance)} km (drift artifact)`;
+        ctx.fillText(label, (a[0] + b[0]) / 2 + 8, (a[1] + b[1]) / 2 - 8);
+        ctx.restore();
+      }
+
+      function currentCraftPoint(viewMode) {
+        const entry = activeEntry();
+        if (!entry) return null;
+        const point = segmentPoint(entry, state.missionTime);
+        return pointForView(point, entry.segment, state.missionTime, viewMode);
+      }
+
+      function drawCraft(view, viewMode) {
+        const point = currentCraftPoint(viewMode);
+        if (!point) return;
+        const [x, y] = view.project(point);
+        if (!visiblePoint(x, y, 30)) return;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(x, y, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = state.theme.craft;
+        ctx.fill();
+        ctx.lineWidth = 1.4;
+        ctx.strokeStyle = state.theme.panelBg;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function drawPanel(viewMode) {
+        const rect = canvas.getBoundingClientRect();
+        const reason = eventPhaseReason(state.missionTime);
+        const arrival = getArrivalSegment();
+        ctx.save();
+        ctx.fillStyle = state.theme.panelBg;
+        ctx.strokeStyle = state.theme.panelBorder;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(14, 14, Math.min(380, rect.width - 28), arrival?.returnPropagationNote ? 104 : 76, 8);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = state.theme.text;
+        ctx.font = "700 12px JetBrains Mono, monospace";
+        ctx.fillText(`${TARGET_LABELS[state.destination]} · ${MISSION_LABELS[state.missionType]}`, 28, 38);
+        ctx.fillStyle = state.theme.textDim;
+        ctx.font = "700 11px JetBrains Mono, monospace";
+        ctx.fillText(`View: ${viewMode.toUpperCase()} · Speed: ${formatSpeed(state.effectiveSpeed)}`, 28, 58);
+        if (reason) ctx.fillText(`Auto-throttle: ${reason}`, 28, 78);
+        if (arrival?.returnPropagationNote) {
+          ctx.fillStyle = state.theme.residual;
+          ctx.fillText("Loose-return fallback labeled in closure panel", 28, reason ? 98 : 78);
+        }
+        ctx.restore();
+      }
+
+      function drawScene() {
+        const viewMode = state.plan ? autoZoom(state.missionTime) : state.currentZoom;
+        state.currentZoom = viewMode;
+        viewLabel.textContent = viewMode.toUpperCase();
+        zoomButtons.forEach((button) => button.classList.toggle("active", button.dataset.zoom === viewMode));
+
+        const rect = canvas.getBoundingClientRect();
+        ctx.clearRect(0, 0, rect.width, rect.height);
+        const view = viewContext(viewMode);
+
+        drawWorlds(view, viewMode);
+        if (state.plan) {
+          state.playbackSegments.forEach((entry) => drawSegmentPath(entry, view, viewMode));
+          drawResidualGap(view, viewMode);
+          drawCraft(view, viewMode);
+        }
+        drawPanel(viewMode);
+      }
+
+      function renderTimeline() {
+        timelineRail.querySelectorAll(".timeline-segment,.timeline-event").forEach((node) => node.remove());
+        if (!state.plan || !state.playbackDuration) return;
+
+        state.playbackSegments.forEach((entry) => {
+          if (entry.displayDuration <= 0) return;
+          const div = document.createElement("div");
+          div.className = "timeline-segment";
+          div.title = SEGMENT_LABELS[entry.segment.type] || entry.segment.type;
+          div.style.flexBasis = `${Math.max(0.15, entry.displayDuration / state.playbackDuration * 100)}%`;
+          div.dataset.index = entry.index;
+          timelineRail.insertBefore(div, timelineProgress);
+        });
+
+        state.events.forEach((event) => {
+          const tick = document.createElement("div");
+          tick.className = `timeline-event${event.isGap ? " is-gap" : ""}`;
+          tick.title = event.label;
+          tick.style.left = `${Math.min(100, Math.max(0, event.displayT / state.playbackDuration * 100))}%`;
+          timelineRail.appendChild(tick);
+        });
+
+        timelineTotal.textContent = formatDuration(state.playbackDuration);
+      }
+
+      function renderEventList() {
+        eventList.innerHTML = "";
+        if (!state.events.length) return;
+        const next = nextEvent(0);
+        state.events.forEach((event) => {
+          const chip = document.createElement("div");
+          chip.className = `event-chip${event === next ? " is-next" : ""}`;
+          chip.textContent = `${formatDuration(event.displayT)} · ${event.label}`;
+          eventList.appendChild(chip);
+        });
+      }
+
+      function renderDeltaBudget() {
+        deltaList.innerHTML = "";
+        if (!state.plan) return;
+        let running = 0;
+        const burns = state.plan.segments.filter((segment) => segment.deltaV > 0);
+        burns.forEach((segment) => {
+          running += segment.deltaV;
+          const row = document.createElement("div");
+          row.className = "delta-row";
+          row.innerHTML = `<span>${SEGMENT_LABELS[segment.type] || segment.type}</span><strong>${segment.deltaV.toFixed(3)} km/s</strong>`;
+          deltaList.appendChild(row);
+        });
+        const total = document.createElement("div");
+        total.className = "delta-row";
+        total.innerHTML = `<span>Propulsive total</span><strong>${running.toFixed(3)} km/s</strong>`;
+        deltaList.appendChild(total);
+        maneuverCount.textContent = `${burns.length} BURN${burns.length === 1 ? "" : "S"}`;
+      }
+
+      function closureCopy() {
+        if (!state.plan) return "<strong>No mission loaded.</strong> Plan a trajectory to see return geometry.";
+        const arrival = getArrivalSegment();
+        const speed = arrival?.arrivalGeocentricSpeed ?? 0;
+        const miss = state.plan.returnAngleMiss ?? 0;
+        const direction = miss >= 0 ? "ahead of" : "behind";
+        const speedLabel = state.missionType === "flyby"
+          ? "Relative velocity at orbit-ring crossing"
+          : "Earth-arrival speed marker";
+        const speedLine = `${speedLabel}: <strong>${speed.toFixed(3)} km/s</strong>. This marker is not added to total Δv.`;
+        const fallback = arrival?.returnPropagationNote
+          ? `<p><strong>Fallback marker:</strong> ${arrival.returnPropagationNote}.</p>`
+          : "";
+
+        if (state.missionType === "flyby") {
+          if (state.destination === "moon") {
+            return `
+              <p><strong>Moon flyby closure:</strong> arrival angle on parking ring is ${formatDegrees(miss)}° from the reference parking point.</p>
+              <p>${speedLine}</p>
+              ${fallback}
+            `;
+          }
+          return `
+            <p><strong>Flyby closure:</strong> spacecraft crosses Earth's orbit about ${formatDegrees(miss)}° ${direction} Earth.</p>
+            <p>${speedLine}</p>
+            ${fallback}
+          `;
+        }
+
+        const gap = arrival?.closureGapDistance ?? 0;
+        const wait = state.plan.returnWaitDuration ?? 0;
+        const angleLine = state.destination === "moon"
+          ? `<p><strong>Moon return geometry:</strong> arrival angle on parking ring is ${formatDegrees(miss)}°.</p>`
+          : "";
+        return `
+          <p><strong>Return wait:</strong> ${formatDuration(wait)}.</p>
+          ${angleLine}
+          <p><strong>Residual gap:</strong> ${formatNumber(gap, 0)} km (drift artifact). The canvas draws this as a dotted marker, not a maneuver.</p>
+          <p>${speedLine}</p>
+          ${fallback}
+        `;
+      }
+
+      function updateClosure() {
+        closureReadout.innerHTML = closureCopy();
+        if (!state.plan) {
+          closureState.textContent = "UNPLANNED";
+        } else if (state.missionType === "flyby") {
+          closureState.textContent = "LOOSE";
+        } else {
+          closureState.textContent = "RESIDUAL";
+        }
+      }
+
+      function updateTelemetry() {
+        if (!state.plan) {
+          segmentLabel.textContent = "STANDBY";
+          elapsedValue.textContent = "0 d";
+          remainingValue.textContent = "0 d";
+          totalDv.textContent = "0.000";
+          effectiveSpeed.textContent = formatSpeed(state.effectiveSpeed);
+          timelineProgress.style.left = "0%";
+          return;
+        }
+
+        const active = activeEntry();
+        document.querySelectorAll(".timeline-segment").forEach((node) => {
+          node.classList.toggle("is-active", active && Number(node.dataset.index) === active.index);
+        });
+        segmentLabel.textContent = activeSegmentLabel();
+        elapsedValue.textContent = formatDuration(state.missionTime);
+        remainingValue.textContent = formatDuration(Math.max(0, state.playbackDuration - state.missionTime));
+        effectiveSpeed.textContent = eventPhaseReason(state.missionTime)
+          ? `${formatSpeed(state.dwellSpeed)} → ${formatSpeed(state.effectiveSpeed)}`
+          : formatSpeed(state.effectiveSpeed);
+        totalDv.textContent = state.plan.totalDeltaV.toFixed(3);
+        timelineProgress.style.left = `${Math.min(100, state.missionTime / state.playbackDuration * 100)}%`;
+        renderEventList();
+      }
+
+      function profileMarsOrbitReturn() {
+        if (state.destination !== "mars" || state.missionType !== "orbit_return") return;
+        const previousStride = state.useRenderStride;
+        state.useRenderStride = false;
+        const frames = 30;
+        const start = performance.now();
+        for (let i = 0; i < frames; i += 1) drawScene();
+        const avg = (performance.now() - start) / frames;
+        state.marsProfileMs = avg;
+        state.useRenderStride = avg > 16.7;
+        if (!state.useRenderStride) {
+          state.useRenderStride = previousStride;
+        }
+      }
+
+      function planAndLaunch() {
+        if (state.rafId) cancelAnimationFrame(state.rafId);
+        state.phase = {
+          [state.destination]: targetPhase(state.destination),
+          moon: targetPhase("moon")
+        };
+
+        const plan = planMission("earth", state.destination, state.missionType);
+        const playback = buildPlayback(plan);
+        state.plan = plan;
+        state.playbackSegments = playback.playbackSegments;
+        state.events = playback.events.sort((a, b) => a.displayT - b.displayT);
+        state.playbackDuration = playback.playbackDuration;
+        state.missionTime = 0;
+        state.effectiveSpeed = state.dwellSpeed;
+        state.manualZoom = null;
+        state.running = true;
+        state.lastFrame = performance.now();
+        planStatus.textContent = "LIVE";
+        statusLed.classList.add("live");
+        skipBtn.disabled = false;
+
+        renderTimeline();
+        renderDeltaBudget();
+        updateClosure();
+        drawScene();
+        profileMarsOrbitReturn();
+        updateTelemetry();
+        state.rafId = requestAnimationFrame(loop);
+      }
+
+      function skipToNextEvent() {
+        if (!state.plan) return;
+        const event = nextEvent(1);
+        if (!event) {
+          state.missionTime = state.playbackDuration;
+        } else {
+          state.missionTime = Math.min(state.playbackDuration, event.displayT);
+        }
+        state.lastFrame = performance.now();
+        state.running = state.missionTime < state.playbackDuration;
+        if (state.running && !state.rafId) state.rafId = requestAnimationFrame(loop);
+        updateTelemetry();
+        drawScene();
+      }
+
+      function loop(now) {
+        if (!state.running || !state.plan) {
+          state.rafId = null;
+          return;
+        }
+        const wallDt = Math.min(0.08, Math.max(0, (now - state.lastFrame) / 1000));
+        state.lastFrame = now;
+        const target = targetSpeedFor(state.missionTime);
+        const ramp = Math.min(1, wallDt / RAMP_SECONDS);
+        state.effectiveSpeed += (target.value - state.effectiveSpeed) * ramp;
+        state.missionTime += wallDt * state.effectiveSpeed;
+
+        if (state.missionTime >= state.playbackDuration) {
+          state.missionTime = state.playbackDuration;
+          state.running = false;
+          planStatus.textContent = "DONE";
+          statusLed.classList.remove("live");
+        }
+
+        updateTelemetry();
+        drawScene();
+        state.rafId = requestAnimationFrame(loop);
+      }
+
+      destinationControls.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-destination]");
+        if (!button) return;
+        state.destination = button.dataset.destination;
+        selectButton(destinationControls, "destination", state.destination);
+      });
+
+      missionControls.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-mission]");
+        if (!button) return;
+        state.missionType = button.dataset.mission;
+        selectButton(missionControls, "mission", state.missionType);
+      });
+
+      speedSlider.addEventListener("input", () => {
+        setDwellSpeed(speedSlider.value);
+      });
+
+      zoomButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          state.manualZoom = button.dataset.zoom;
+          state.currentZoom = state.manualZoom;
+          drawScene();
+        });
+      });
+
+      scaleToggle.addEventListener("change", () => {
+        state.trueScale = scaleToggle.checked;
+        drawScene();
+      });
+
+      launchBtn.addEventListener("click", planAndLaunch);
+      skipBtn.addEventListener("click", skipToNextEvent);
+
+      window.addEventListener("resize", setupCanvas);
+      window.addEventListener("themechange", () => {
+        readTheme();
+        drawScene();
+      });
+
+      document.getElementById("focusToggle").addEventListener("click", () => {
+        document.body.classList.toggle("sim-focus");
+        window.dispatchEvent(new Event("resize"));
+      });
+
+      document.getElementById("themeToggle").addEventListener("click", () => {
+        const cur = document.documentElement.dataset.theme;
+        const next = cur === "light" ? "dark" : "light";
+        document.documentElement.dataset.theme = next;
+        localStorage.setItem("physicsLabTheme", next);
+        window.dispatchEvent(new CustomEvent("themechange", { detail: next }));
+      });
+
+      setDwellSpeed(DEFAULT_SPEED_INDEX);
+      readTheme();
+      setupCanvas();
+      updateClosure();
+      updateTelemetry();
+    </script>
+  </body>
+</html>

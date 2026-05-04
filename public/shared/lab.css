@@ -34,6 +34,16 @@
   --canvas-ground-line: rgba(244, 180, 63, 0.55);
   --canvas-ground-tint: rgba(99, 214, 255, 0.08);
   --canvas-rule: rgba(153, 178, 206, 0.18);
+  --solar-sun: #ffd47a;
+  --solar-earth: #63d6ff;
+  --solar-mars: #ff866a;
+  --solar-venus: #f4b43f;
+  --solar-moon: #c3cedd;
+  --solar-spacecraft: #e8ecf3;
+  --solar-transfer: #7aa7ff;
+  --solar-return: #b89cff;
+  --solar-soi: rgba(99, 214, 255, 0.42);
+  --solar-residual: #ff6d6d;
   --radius: 8px;
   --mono: "JetBrains Mono", monospace;
   --body: "Inter", system-ui, sans-serif;
@@ -76,6 +86,16 @@
   --canvas-ground-line: rgba(180, 110, 30, 0.45);
   --canvas-ground-tint: rgba(30, 58, 138, 0.05);
   --canvas-rule: rgba(101, 112, 133, 0.22);
+  --solar-sun: #b45309;
+  --solar-earth: #1e3a8a;
+  --solar-mars: #b42318;
+  --solar-venus: #a16207;
+  --solar-moon: #64748b;
+  --solar-spacecraft: #182033;
+  --solar-transfer: #315bb5;
+  --solar-return: #4c1d95;
+  --solar-soi: rgba(30, 58, 138, 0.28);
+  --solar-residual: #b42318;
 }
 
 * {

@@ -114,22 +114,22 @@ No further work unless feedback comes from the friend.
 
 ---
 
-## V3: Solar System Mission Simulator (STAGE 3A SHIPPED — see V3_SPEC.md)
+## V3: Solar System Mission Simulator (STAGE 3B SHIPPED — see V3_SPEC.md)
 
-**Status:** Stage 3a is shipped, reviewed, and patched. Stage 3b and Stage 3c are not built.
+**Status:** Stage 3a is shipped, reviewed, and patched. Stage 3b is shipped, reviewed, and closure-gap-fixed. Stage 3c is not built.
 
 **Detailed spec lives in [`V3_SPEC.md`](V3_SPEC.md)** at the repo root. That file is the source of truth for V3 — destinations, mission types, physics framework, reference numbers, staged build plan with per-stage tests, and the resolved conventions (initial geometry, return-phase matching, closed-orbit and hyperbolic-segment dt, default time acceleration, flyby periapsis, units, etc.).
 
 **Build plan summary** (full detail in V3_SPEC.md → "Staged build plan"):
 - **Stage 3a — SHIPPED / REVIEWED / PATCHED** — `public/shared/orbital.js` + `orbital.test.html`. Pure math: propagate, closedOrbitDt, hohmannTransfer, sphereOfInfluence, visViva, escapeBurn, transformFrame, hohmannPhaseAngle, returnWaitTime, plus a `CONSTANTS` table. Original gating tests pass, and the review patch adds high-eccentricity dt coverage, angular momentum, propagation-based Kepler's 3rd law, isolated escapeBurn checks, stronger frame-transform checks, and validation guards. CC touch-up pass applied: Moon dt-policy test now uses anchor expectations instead of duplicating the formula; escapeBurn tests use the locked hyperbolic-escape formula rather than bound lunar-TLI shorthand.
-- **Stage 3b** — add `planMission(originBody, targetBody, missionType, options) → MissionPlan` to `orbital.js`. Six mission patterns (Mars/Venus/Moon × flyby/orbit-return/touch-return). Still no UI. All tests pass before 3c.
-- **Stage 3c** — `public/astro/solar.html`. Adaptive zoom, time acceleration, mission timeline, Δv readout, true-scale toggle, footer. Visual style matches lab.css.
+- **Stage 3b — SHIPPED / REVIEWED / CLOSURE-GAP-FIXED** — `planMission(originBody, targetBody, missionType, options) → MissionPlan` in `orbital.js`. Six mission patterns (Mars/Venus/Moon × flyby/orbit-return/touch-return). Still no UI. Review fixes include propagated interplanetary/translunar return arcs, honest residual Earth-arrival gap markers, Venus orbit-return coverage, and the Earth-arrival speed marker convention.
+- **Stage 3c — NEXT APPROVAL GATE** — `public/astro/solar.html`. Adaptive zoom, time acceleration, mission timeline, Δv readout, true-scale toggle, footer. Visual style matches lab.css.
 
 Each stage gets reviewed before the next starts — same process that worked for V1 and V2.
 
 **Why physics-first:** two-body orbits, patched conics, Hohmann transfers, scale ratios spanning 6 orders of magnitude. A one-shot Codex prompt will produce something that *looks* right and is subtly wrong. The physics module is built and tested in isolation so UI bugs can't hide physics bugs.
 
-**Next gate:** Stage 3b can start only after explicit approval. Stage 3c remains blocked until Stage 3b is built, tested, and reviewed.
+**Next gate:** Stage 3c can start only after explicit approval. Stage 3b is built, tested, reviewed, and closure-gap-fixed.
 
 ### Decisions logged
 
@@ -138,6 +138,7 @@ Each stage gets reviewed before the next starts — same process that worked for
 - Merging would either fake the handoff or require rewriting V1, weakening its focused atmospheric / Max-Q lesson.
 - Future option: V4 "Mission Story Mode" can stitch V1 + V3 conceptually with a step-through narrative and combined Δv budget card, after V3 ships and feedback warrants it.
 - Stage 3b labels strict-return residual drift instead of correcting it. Iterative targeting would require a shooting solve on return wait/departure timing, which is its own Stage 3b.5/3c engineering project and should not be bolted onto the mission planner patch.
+- Post-publish investigation: Mars-flyby `arrivalGeocentricSpeed` can describe a fallback loose-return marker when `returnPropagationNote` exists, not a point the deflected flyby physically reaches. Consider suppressing that marker when fallback reporting is active.
 
 ---
 
@@ -148,16 +149,16 @@ Each stage gets reviewed before the next starts — same process that worked for
 3. **V2.6 design + branding pass** — done.
 4. **Publish + get friend's reaction.** The lab is now in publishable shape (brand, theme, focus mode, favicon, footer credits all in place). Ship it, then let feedback shape what's next: more depth on stick-slip, more worlds for the rocket sim, more PDF sections, or a new shelf entirely.
 5. **Replace the GitHub footer placeholder** with the real repo URL once it exists. The href in the site-credits footer is currently `#`.
-6. **V3 solar-system** — Stage 3a is shipped, reviewed, and patched. Start Stage 3b only with explicit approval; do not start Stage 3c until Stage 3b is reviewed.
+6. **V3 solar-system** — Stage 3a is shipped, reviewed, and patched. Stage 3b is shipped, reviewed, and closure-gap-fixed. Start Stage 3c only with explicit approval.
 
 ---
 
 ## What to give Codex / any agent right now
 
-V2.5 and V2.6 are shipped, and V3 Stage 3a is shipped/reviewed/patched. The next move is either publishing/gathering feedback or explicitly starting Stage 3b. If an agent needs to touch the repo outside that approval, the safe scopes are:
+V2.5 and V2.6 are shipped, V3 Stage 3a is shipped/reviewed/patched, and V3 Stage 3b is shipped/reviewed/closure-gap-fixed. The next move is either publishing/gathering feedback or explicitly starting Stage 3c. If an agent needs to touch the repo outside that approval, the safe scopes are:
 
 - Swap the footer GitHub placeholder once the URL is known.
 - Bug fixes flagged by the friend after publish.
 - Small additions to existing sims (a new planet for rocket, a fourth tab for friction) — but only if they fit the existing patterns documented in AGENTS.md.
 
-Bigger work — a new shelf, a new sim, Stage 3b, or Stage 3c — should still come back through this roadmap before any code is written.
+Bigger work — a new shelf, a new sim, or Stage 3c — should still come back through this roadmap before any code is written.
