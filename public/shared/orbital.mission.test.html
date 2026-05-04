@@ -1,0 +1,742 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🪐</text></svg>"
+    />
+    <title>Mission Planner Tests · Hwa's Physics Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/shared/lab.css" />
+    <style>
+      .tests-page .shell {
+        max-width: 1100px;
+      }
+
+      .summary-band {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 16px;
+        padding: 22px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        margin-bottom: 22px;
+      }
+
+      .summary-band strong {
+        font-family: var(--display);
+        font-size: 1.35rem;
+      }
+
+      .summary-band p {
+        margin: 6px 0 0;
+        color: var(--text-dim);
+        font-size: 0.92rem;
+      }
+
+      .summary-pill {
+        font-family: var(--mono);
+        font-size: 0.95rem;
+        font-weight: 700;
+        padding: 10px 18px;
+        border-radius: 999px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        border: 1px solid var(--border);
+      }
+
+      .summary-pill.pass {
+        color: var(--green);
+        background: color-mix(in srgb, var(--green) 14%, transparent);
+        border-color: color-mix(in srgb, var(--green) 50%, transparent);
+      }
+
+      .summary-pill.fail {
+        color: var(--red);
+        background: color-mix(in srgb, var(--red) 14%, transparent);
+        border-color: color-mix(in srgb, var(--red) 50%, transparent);
+      }
+
+      .test-list {
+        display: grid;
+        gap: 14px;
+      }
+
+      .test-card {
+        display: grid;
+        gap: 12px;
+        padding: 18px 22px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-left: 4px solid var(--border);
+        border-radius: var(--radius);
+      }
+
+      .test-card.pass {
+        border-left-color: var(--green);
+      }
+
+      .test-card.fail {
+        border-left-color: var(--red);
+      }
+
+      .test-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+
+      .test-name {
+        font-family: var(--display);
+        font-weight: 700;
+      }
+
+      .test-badge {
+        font-family: var(--mono);
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 4px 10px;
+        border-radius: 999px;
+      }
+
+      .test-badge.pass {
+        color: var(--green);
+        background: color-mix(in srgb, var(--green) 14%, transparent);
+      }
+
+      .test-badge.fail {
+        color: var(--red);
+        background: color-mix(in srgb, var(--red) 16%, transparent);
+      }
+
+      .test-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px 22px;
+        font-family: var(--mono);
+        font-size: 0.86rem;
+      }
+
+      .test-grid div {
+        display: grid;
+        gap: 4px;
+      }
+
+      .label {
+        color: var(--text-dim);
+        font-size: 0.74rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .value {
+        color: var(--text);
+      }
+
+      .test-note {
+        margin: 0;
+        color: var(--text-dim);
+        font-size: 0.88rem;
+      }
+    </style>
+    <script>
+      (function () {
+        var stored = localStorage.getItem("physicsLabTheme");
+        document.documentElement.dataset.theme = stored === "light" ? "light" : "dark";
+      })();
+    </script>
+  </head>
+  <body class="sim-page tests-page">
+    <button
+      class="theme-toggle"
+      id="themeToggle"
+      type="button"
+      aria-label="Toggle color theme"
+      title="Toggle color theme"
+    >
+      <span class="theme-icon theme-icon-dark" aria-hidden="true">◑</span>
+      <span class="theme-icon theme-icon-light" aria-hidden="true">◐</span>
+    </button>
+
+    <main class="shell sim-container">
+      <a class="back-link" href="/">← Back to Lab</a>
+      <header>
+        <div class="eyebrow">V3 · Stage 3b · mission planner tests</div>
+        <h1>Mission Planner Tests</h1>
+        <p class="intro">
+          Browser-runnable tests for <code>planMission()</code> and the Stage 3b
+          orbital helpers. Stage 3c remains blocked until every card is green.
+        </p>
+      </header>
+
+      <section class="summary-band" aria-live="polite">
+        <div>
+          <strong id="summaryHeadline">Running tests…</strong>
+          <p id="summaryDetail">Stage 3b mission planner gates are running.</p>
+        </div>
+        <div class="summary-pill" id="summaryPill">Pending</div>
+      </section>
+
+      <div class="test-list" id="testList"></div>
+    </main>
+
+    <footer class="site-credits">
+      Built by Hwa Lee ·
+      <a href="https://github.com/leezorba/physics-lab" rel="noopener" aria-label="GitHub (link coming soon)">GitHub</a>
+    </footer>
+
+    <script type="module">
+      import {
+        CONSTANTS,
+        circularOrbitState,
+        hohmannPhaseAngle,
+        hohmannTransfer,
+        hyperbolicDeflectionAngle,
+        planMission,
+        propagate,
+        returnAngleMiss,
+        signedAngleBetween,
+        signedHohmannDeltaV,
+        transformFrameWithOrigin
+      } from "/shared/orbital.js";
+
+      const results = [];
+
+      function fmt(value, digits = 4) {
+        if (typeof value !== "number" || !Number.isFinite(value)) return String(value);
+        const abs = Math.abs(value);
+        if (abs !== 0 && (abs < 1e-3 || abs >= 1e6)) return value.toExponential(digits);
+        return value.toFixed(digits);
+      }
+
+      function days(seconds) {
+        return seconds / 86400;
+      }
+
+      function relErr(actual, expected) {
+        if (expected === 0) return Math.abs(actual);
+        return Math.abs(actual - expected) / Math.abs(expected);
+      }
+
+      function record(name, fields, pass, note = "") {
+        results.push({ name, fields, pass, note });
+      }
+
+      function assertThrows(fn, ExpectedError) {
+        try {
+          fn();
+        } catch (err) {
+          return err instanceof ExpectedError;
+        }
+        return false;
+      }
+
+      function cumulativeTimes(plan) {
+        const times = [];
+        let t = 0;
+        for (const segment of plan.segments) {
+          times.push({ start: t, end: t + segment.duration });
+          t += segment.duration;
+        }
+        return times;
+      }
+
+      function targetPhase(targetBody, options = {}) {
+        const t0 = options.t0 || 0;
+        if (targetBody === "moon") {
+          const rPark = CONSTANTS.earth.radius + (options.parkingOrbitAltitude ?? 400);
+          const wMoon = Math.sqrt(CONSTANTS.earth.mu / Math.pow(CONSTANTS.moon.orbitRadius, 3));
+          return hohmannPhaseAngle(rPark, CONSTANTS.moon.orbitRadius, CONSTANTS.earth.mu) - wMoon * t0;
+        }
+        const target = CONSTANTS[targetBody];
+        const wEarth = Math.sqrt(CONSTANTS.sun.mu / Math.pow(CONSTANTS.earth.orbitRadius, 3));
+        const wTarget = Math.sqrt(CONSTANTS.sun.mu / Math.pow(target.orbitRadius, 3));
+        const launchEarthAngle = wEarth * t0;
+        return launchEarthAngle +
+          hohmannPhaseAngle(CONSTANTS.earth.orbitRadius, target.orbitRadius, CONSTANTS.sun.mu) -
+          wTarget * t0;
+      }
+
+      function frameOrigin(frame, targetBody, t, options = {}) {
+        if (frame === "heliocentric" || frame === "target-centric") {
+          if (targetBody === "moon") return null;
+          if (frame === "target-centric") {
+            return circularOrbitState(
+              CONSTANTS[targetBody].orbitRadius,
+              CONSTANTS.sun.mu,
+              t,
+              targetPhase(targetBody, options)
+            );
+          }
+          return null;
+        }
+        if (frame === "moon-centric") {
+          return circularOrbitState(
+            CONSTANTS.moon.orbitRadius,
+            CONSTANTS.earth.mu,
+            t,
+            targetPhase("moon", options)
+          );
+        }
+        if (frame === "geocentric" && targetBody !== "moon") {
+          return circularOrbitState(CONSTANTS.earth.orbitRadius, CONSTANTS.sun.mu, t, 0);
+        }
+        return null;
+      }
+
+      function convertState(state, fromFrame, toFrame, targetBody, t, options = {}) {
+        if (fromFrame === toFrame) return state;
+        if (fromFrame === "geocentric" && toFrame === "heliocentric") {
+          const earth = frameOrigin("geocentric", targetBody, t, options);
+          return transformFrameWithOrigin(state, earth.r, earth.v, "fromFrame");
+        }
+        if (fromFrame === "heliocentric" && toFrame === "geocentric") {
+          const earth = frameOrigin("geocentric", targetBody, t, options);
+          return transformFrameWithOrigin(state, earth.r, earth.v, "toFrame");
+        }
+        if (fromFrame === "heliocentric" && toFrame === "target-centric") {
+          const target = frameOrigin("target-centric", targetBody, t, options);
+          return transformFrameWithOrigin(state, target.r, target.v, "toFrame");
+        }
+        if (fromFrame === "target-centric" && toFrame === "heliocentric") {
+          const target = frameOrigin("target-centric", targetBody, t, options);
+          return transformFrameWithOrigin(state, target.r, target.v, "fromFrame");
+        }
+        if (fromFrame === "geocentric" && toFrame === "moon-centric") {
+          const moon = frameOrigin("moon-centric", targetBody, t, options);
+          return transformFrameWithOrigin(state, moon.r, moon.v, "toFrame");
+        }
+        if (fromFrame === "moon-centric" && toFrame === "geocentric") {
+          const moon = frameOrigin("moon-centric", targetBody, t, options);
+          return transformFrameWithOrigin(state, moon.r, moon.v, "fromFrame");
+        }
+        throw new Error(`No conversion path from ${fromFrame} to ${toFrame}`);
+      }
+
+      function replayFromPointsCadence(segment) {
+        if (segment.duration === 0 || segment.points.length < 2) return segment.endState;
+        let state = {
+          r: [segment.startState.r[0], segment.startState.r[1]],
+          v: [segment.startState.v[0], segment.startState.v[1]]
+        };
+        const dt = segment.integrationDt || (segment.duration / (segment.points.length - 1));
+        let elapsed = 0;
+        while (elapsed < segment.duration - 1e-9) {
+          const step = Math.min(dt, segment.duration - elapsed);
+          state = propagate(state, segment.mu, step);
+          elapsed += step;
+        }
+        return state;
+      }
+
+      function continuityReport(plan, targetBody, options = {}) {
+        const times = cumulativeTimes(plan);
+        let worstPosition = 0;
+        let worstVelocity = 0;
+        let worstPair = "";
+        for (let i = 0; i < plan.segments.length - 1; i++) {
+          const a = plan.segments[i];
+          const b = plan.segments[i + 1];
+          if (!a.integrationDt) continue;
+          const t = (options.t0 || 0) + times[i].end;
+          const replayEnd = replayFromPointsCadence(a);
+          const converted = convertState(replayEnd, a.frame, b.frame, targetBody, t, options);
+          const posErr = Math.hypot(
+            converted.r[0] - b.startState.r[0],
+            converted.r[1] - b.startState.r[1]
+          );
+          const velErr = Math.hypot(
+            converted.v[0] - b.startState.v[0],
+            converted.v[1] - b.startState.v[1]
+          );
+          const posScale = Math.max(1, Math.hypot(converted.r[0], converted.r[1]), Math.hypot(b.startState.r[0], b.startState.r[1]));
+          const velScale = Math.max(1, Math.hypot(converted.v[0], converted.v[1]), Math.hypot(b.startState.v[0], b.startState.v[1]));
+          const posRel = posErr / posScale;
+          const velRel = velErr / velScale;
+          if (posRel > worstPosition || velRel > worstVelocity) {
+            worstPosition = Math.max(worstPosition, posRel);
+            worstVelocity = Math.max(worstVelocity, velRel);
+            worstPair = `${a.type} → ${b.type}`;
+          }
+        }
+        return { worstPosition, worstVelocity, worstPair };
+      }
+
+      function chordMiss(points) {
+        if (points.length < 3) return 0;
+        const a = points[0];
+        const b = points[points.length - 1];
+        const dx = b[0] - a[0];
+        const dy = b[1] - a[1];
+        const chord = Math.hypot(dx, dy);
+        if (chord === 0) return 0;
+        let maxMiss = 0;
+        for (let i = 1; i < points.length - 1; i++) {
+          const p = points[i];
+          const miss = Math.abs(dx * (a[1] - p[1]) - (a[0] - p[0]) * dy) / chord;
+          maxMiss = Math.max(maxMiss, miss);
+        }
+        return maxMiss;
+      }
+
+      function runTests() {
+        {
+          const venus = signedHohmannDeltaV(
+            CONSTANTS.earth.orbitRadius,
+            CONSTANTS.venus.orbitRadius,
+            CONSTANTS.sun.mu
+          );
+          const mars = signedHohmannDeltaV(
+            CONSTANTS.earth.orbitRadius,
+            CONSTANTS.mars.orbitRadius,
+            CONSTANTS.sun.mu
+          );
+          record("signedHohmannDeltaV · explicit direction fields", [
+            ["Venus direction1", String(venus.direction1)],
+            ["Venus isInnerTransfer", String(venus.isInnerTransfer)],
+            ["Mars direction1", String(mars.direction1)],
+            ["Mars isInnerTransfer", String(mars.isInnerTransfer)]
+          ], venus.direction1 === -1 && venus.direction2 === -1 && venus.isInnerTransfer === true &&
+             mars.direction1 === 1 && mars.direction2 === 1 && mars.isInnerTransfer === false,
+          "Refinement gate: Venus departure must be explicitly retrograde.");
+        }
+
+        {
+          const p = planMission("earth", "mars", "orbit_return");
+          const h = hohmannTransfer(CONSTANTS.earth.orbitRadius, CONSTANTS.mars.orbitRadius, CONSTANTS.sun.mu);
+          const returnSegment = p.segments.find((s) => s.type === "heliocentric_return");
+          const arrival = p.segments[p.segments.length - 1];
+          const durationOk = days(p.totalDuration) >= 970 && days(p.totalDuration) <= 990;
+          const returnOk = relErr(returnSegment.duration, h.transferTime) < 0.01;
+          const gapOk = arrival.closureMarker === "residual_gap" &&
+            arrival.duration > 0 &&
+            arrival.closureGapDistance > 1e6;
+          const dvOk = p.totalDeltaV >= 7 && p.totalDeltaV <= 9;
+          const waitOk = days(p.returnWaitDuration) >= 400 && days(p.returnWaitDuration) <= 550;
+          const missOk = Number.isFinite(p.returnAngleMiss) && Math.abs(p.returnAngleMiss * 180 / Math.PI) < 2;
+          record("planMission · Earth → Mars orbit-return", [
+            ["Duration", `${days(p.totalDuration).toFixed(1)} days`],
+            ["Return coast", `${days(returnSegment.duration).toFixed(1)} days`],
+            ["Hohmann return", `${days(h.transferTime).toFixed(1)} days`],
+            ["Return wait", `${days(p.returnWaitDuration).toFixed(1)} days`],
+            ["Arrival gap", `${Math.round(arrival.closureGapDistance).toLocaleString()} km`],
+            ["Total Δv", `${p.totalDeltaV.toFixed(3)} km/s`],
+            ["Δv convention", "Earth arrival excluded"],
+            ["returnAngleMiss", `${(p.returnAngleMiss * 180 / Math.PI).toFixed(3)}°`]
+          ], durationOk && returnOk && gapOk && dvOk && waitOk && missOk,
+          "Strict return-phase matching is internal; residual propagation drift is labeled instead of hidden.");
+        }
+
+        {
+          const p = planMission("earth", "moon", "orbit_return");
+          const arrival = p.segments[p.segments.length - 1];
+          record("planMission · Earth → Moon orbit-return", [
+            ["Duration", `${days(p.totalDuration).toFixed(2)} days`],
+            ["Return wait", `${days(p.returnWaitDuration).toFixed(2)} days`],
+            ["Arrival gap", `${arrival.closureGapDistance.toFixed(1)} km`],
+            ["Total Δv", `${p.totalDeltaV.toFixed(3)} km/s`],
+            ["returnAngleMiss", `${(p.returnAngleMiss * 180 / Math.PI).toFixed(3)}°`]
+          ], days(p.totalDuration) >= 9.5 && days(p.totalDuration) <= 10.5 &&
+             p.totalDeltaV >= 4.3 && p.totalDeltaV <= 5.2 &&
+             p.returnWaitDuration === 0 &&
+             arrival.closureMarker === "residual_gap" &&
+             arrival.duration > 0 &&
+             Number.isFinite(p.returnAngleMiss),
+          "Moon return wait remains zero; Earth arrival speed is a marker rather than a propulsive capture burn.");
+        }
+
+        {
+          const p = planMission("earth", "venus", "orbit_return");
+          const h = hohmannTransfer(CONSTANTS.earth.orbitRadius, CONSTANTS.venus.orbitRadius, CONSTANTS.sun.mu);
+          const returnSegment = p.segments.find((s) => s.type === "heliocentric_return");
+          const arrival = p.segments[p.segments.length - 1];
+          record("planMission · Earth → Venus orbit-return", [
+            ["Duration", `${days(p.totalDuration).toFixed(1)} days`],
+            ["Return coast", `${days(returnSegment.duration).toFixed(1)} days`],
+            ["Hohmann return", `${days(h.transferTime).toFixed(1)} days`],
+            ["Return wait", `${days(p.returnWaitDuration).toFixed(1)} days`],
+            ["Arrival gap", `${Math.round(arrival.closureGapDistance).toLocaleString()} km`],
+            ["Total Δv", `${p.totalDeltaV.toFixed(3)} km/s`],
+            ["Δv band", "9–11 km/s"]
+          ], days(p.totalDuration) >= 740 && days(p.totalDuration) <= 790 &&
+             relErr(returnSegment.duration, h.transferTime) < 0.025 &&
+             p.totalDeltaV >= 9 && p.totalDeltaV <= 11 &&
+             p.returnWaitDuration > 0 &&
+             arrival.closureMarker === "residual_gap" &&
+             arrival.duration > 0 &&
+             Number.isFinite(p.returnAngleMiss),
+          "Regression for inner-transfer Δv: Earth arrival speed is excluded, so Venus lands in the spec band.");
+        }
+
+        {
+          const p = planMission("earth", "mars", "flyby");
+          const h = hohmannTransfer(CONSTANTS.earth.orbitRadius, CONSTANTS.mars.orbitRadius, CONSTANTS.sun.mu);
+          const targetDuration = 2 * h.transferTime;
+          const hasNoWait = !p.segments.some((s) => s.type === "target_wait");
+          record("planMission · Earth → Mars flyby loose closure", [
+            ["Duration", `${days(p.totalDuration).toFixed(1)} days`],
+            ["2 × transfer", `${days(targetDuration).toFixed(1)} days`],
+            ["Total Δv", `${p.totalDeltaV.toFixed(3)} km/s`],
+            ["Return wait", `${days(p.returnWaitDuration).toFixed(1)} days`],
+            ["Angle miss", `${(p.returnAngleMiss * 180 / Math.PI).toFixed(2)}°`]
+          ], relErr(p.totalDuration, targetDuration) < 0.02 &&
+             p.totalDeltaV >= 3 && p.totalDeltaV <= 4 &&
+             p.returnWaitDuration === 0 &&
+             Math.abs(p.returnAngleMiss) > 1e-6 &&
+             hasNoWait,
+          "Flyby reports honest angular miss; total Δv is the outbound propulsive burn only.");
+        }
+
+        {
+          const orbit = planMission("earth", "mars", "orbit_return");
+          const touch = planMission("earth", "mars", "touch_return");
+          const types = touch.segments.map((s) => s.type);
+          const order = types.indexOf("descent") > types.indexOf("target_orbit") &&
+            types.indexOf("surface_dwell") > types.indexOf("descent") &&
+            types.indexOf("ascent") > types.indexOf("surface_dwell") &&
+            types.indexOf("target_wait") > types.indexOf("ascent");
+          const taxErr = Math.abs((touch.totalDeltaV - orbit.totalDeltaV) - CONSTANTS.surfaceDeltaV.mars);
+          record("planMission · touch-return inserts surface tax before wait", [
+            ["Orbit Δv", `${orbit.totalDeltaV.toFixed(3)} km/s`],
+            ["Touch Δv", `${touch.totalDeltaV.toFixed(3)} km/s`],
+            ["Expected tax", `${CONSTANTS.surfaceDeltaV.mars.toFixed(1)} km/s`],
+            ["Segment order", order ? "correct" : types.join(" > ")]
+          ], order && taxErr < 1e-9,
+          "The return-window wait stays downstream of ascent, per the resolved Stage 3b pattern.");
+        }
+
+        {
+          const mars = planMission("earth", "mars", "orbit_return");
+          const moon = planMission("earth", "moon", "orbit_return");
+          const coastSegments = [
+            mars.segments.find((s) => s.type === "heliocentric_outbound"),
+            mars.segments.find((s) => s.type === "heliocentric_return"),
+            moon.segments.find((s) => s.type === "translunar_coast"),
+            moon.segments.find((s) => s.type === "translunar_return")
+          ];
+          const misses = coastSegments.map((segment) => chordMiss(segment.points));
+          const enoughPoints = coastSegments.every((segment) => segment.points.length > 100);
+          const curved = misses.every((miss) => miss > 1000);
+          record("coast segment points · propagated elliptical arcs, not chords", [
+            ["Point counts", coastSegments.map((s) => `${s.type}: ${s.points.length.toLocaleString()}`).join(", ")],
+            ["Max chord misses", misses.map((m) => `${Math.round(m).toLocaleString()} km`).join(", ")],
+            ["Requirement", "curved propagated points"]
+          ], enoughPoints && curved,
+          "Blocks the old sampleLine regression for heliocentric and translunar coast segments.");
+        }
+
+        {
+          const plans = [
+            ["mars", "orbit_return"],
+            ["mars", "flyby"],
+            ["moon", "orbit_return"],
+            ["moon", "touch_return"],
+            ["venus", "orbit_return"]
+          ];
+          const reports = plans.map(([target, type]) => {
+            const report = continuityReport(planMission("earth", target, type), target);
+            return { target, type, ...report };
+          });
+          const worstPos = Math.max(...reports.map((r) => r.worstPosition));
+          const worstVel = Math.max(...reports.map((r) => r.worstVelocity));
+          const worst = reports.reduce((a, b) =>
+            Math.max(a.worstPosition, a.worstVelocity) >= Math.max(b.worstPosition, b.worstVelocity) ? a : b
+          );
+          record("patched-conic continuity · separate position and velocity gates", [
+            ["Worst position", `${(worstPos * 100).toExponential(2)}%`],
+            ["Position tolerance", "< 0.01%"],
+            ["Worst velocity", `${(worstVel * 100).toExponential(2)}%`],
+            ["Velocity tolerance", "< 0.1%"],
+            ["Worst pair", `${worst.target} ${worst.type}: ${worst.worstPair}`]
+          ], worstPos <= 0.0001 && worstVel <= 0.001,
+          "Refinement gate: position and velocity are asserted separately.");
+        }
+
+        {
+          const marsOrbit = planMission("earth", "mars", "orbit_return");
+          const moonTouch = planMission("earth", "moon", "touch_return");
+          const gaps = [marsOrbit, moonTouch].map((p) => {
+            const first = p.segments[0].points[0];
+            const lastSegment = p.segments[p.segments.length - 1];
+            const propagatedStart = lastSegment.startState.r;
+            const gapFromLaunchStart = Math.hypot(
+              first[0] - propagatedStart[0],
+              first[1] - propagatedStart[1]
+            ) / Math.max(1, Math.hypot(first[0], first[1]));
+            const segmentGap = Math.hypot(
+              lastSegment.startState.r[0] - lastSegment.endState.r[0],
+              lastSegment.startState.r[1] - lastSegment.endState.r[1]
+            );
+            return {
+              gapFromLaunchStart,
+              segmentGap,
+              recordedGap: lastSegment.closureGapDistance,
+              duration: lastSegment.duration,
+              marker: lastSegment.closureMarker
+            };
+          });
+          const labeled = gaps.every((g) =>
+            g.marker === "residual_gap" &&
+            g.duration > 0 &&
+            g.segmentGap > 0 &&
+            Math.abs(g.segmentGap - g.recordedGap) <= Math.max(1e-6, g.segmentGap * 1e-12)
+          );
+          record("strict return gap marker · orbit/touch returns", [
+            ["Mars propagated gap", `${(gaps[0].gapFromLaunchStart * 100).toFixed(2)}%`],
+            ["Moon propagated gap", `${(gaps[1].gapFromLaunchStart * 100).toFixed(2)}%`],
+            ["Mars marker duration", `${days(gaps[0].duration).toFixed(3)} days`],
+            ["Moon marker duration", `${days(gaps[1].duration).toFixed(6)} days`],
+            ["Closure marker", gaps.map((g) => g.marker).join(", ")]
+          ], labeled && gaps.every((g) => g.gapFromLaunchStart > 0.01),
+          "Uses earth_arrival.startState.r, the propagation-derived state; the hardcoded final point is not accepted as closure.");
+        }
+
+        {
+          const p = planMission("earth", "mars", "flyby");
+          const times = cumulativeTimes(p);
+          const returnSegmentIndex = p.segments.findIndex((s) => s.type === "heliocentric_return");
+          const returnEnd = p.segments[returnSegmentIndex].endState;
+          const finalTime = times[returnSegmentIndex].end;
+          const earth = circularOrbitState(CONSTANTS.earth.orbitRadius, CONSTANTS.sun.mu, finalTime, 0);
+          const radiusErr = Math.abs(Math.hypot(returnEnd.r[0], returnEnd.r[1]) - CONSTANTS.earth.orbitRadius) / CONSTANTS.earth.orbitRadius;
+          const miss = returnAngleMiss(returnEnd, earth);
+          record("loose replay closure · flyby reaches Earth orbit radius only", [
+            ["Radius error", `${(radiusErr * 100).toFixed(4)}%`],
+            ["Plan angle miss", `${(p.returnAngleMiss * 180 / Math.PI).toFixed(2)}°`],
+            ["Replay angle miss", `${(miss * 180 / Math.PI).toFixed(2)}°`],
+            ["Miss delta", `${(Math.abs(miss - p.returnAngleMiss) * 180 / Math.PI).toFixed(4)}°`]
+          ], radiusErr <= 0.01 && Math.abs(miss - p.returnAngleMiss) * 180 / Math.PI <= 0.5,
+          "Flyby returns to Earth's orbital radius, not Earth's actual position.");
+        }
+
+        {
+          const plans = [
+            planMission("earth", "mars", "orbit_return"),
+            planMission("earth", "venus", "orbit_return"),
+            planMission("earth", "moon", "orbit_return")
+          ];
+          const arrivals = plans.map((p) => p.segments[p.segments.length - 1]);
+          record("Earth arrival convention · speed marker, not Δv burn", [
+            ["Arrival Δv values", arrivals.map((s) => `${s.deltaV.toFixed(3)} km/s`).join(", ")],
+            ["Geocentric speeds", arrivals.map((s) => `${s.arrivalGeocentricSpeed.toFixed(3)} km/s`).join(", ")],
+            ["Convention", "excluded from total Δv"]
+          ], arrivals.every((s) => s.type === "earth_arrival" && s.deltaV === 0 && s.arrivalGeocentricSpeed > 0),
+          "Documents convention (c): Earth arrival energy is visible but not charged as a propulsive burn.");
+        }
+
+        {
+          const p = planMission("earth", "mars", "flyby");
+          const arc = p.segments.find((s) => s.type === "flyby_arc");
+          const expected = hyperbolicDeflectionAngle(1.1 * CONSTANTS.mars.radius, 2.65, CONSTANTS.mars.mu);
+          const err = Math.abs(arc.propagatedDeflection - arc.analyticalDeflection) / arc.analyticalDeflection;
+          record("hyperbolic deflection · propagated vs analytical", [
+            ["Integrator", arc.integrator],
+            ["Expected @ 2.65 v∞", `${(expected * 180 / Math.PI).toFixed(3)}°`],
+            ["Analytical", `${(arc.analyticalDeflection * 180 / Math.PI).toFixed(3)}°`],
+            ["Propagated", `${(arc.propagatedDeflection * 180 / Math.PI).toFixed(3)}°`],
+            ["Error", `${(err * 100).toFixed(3)}%`],
+            ["Tolerance", "< 5%"]
+          ], err <= 0.05,
+          "Euler-Cromer is retained only because this exact Stage 3b deflection gate passes.");
+        }
+
+        {
+          const cases = [
+            assertThrows(() => planMission("mars", "earth", "flyby"), RangeError),
+            assertThrows(() => planMission("earth", "pluto", "flyby"), RangeError),
+            assertThrows(() => planMission("earth", "mars", "landing"), RangeError),
+            assertThrows(() => planMission("earth", "mars", "flyby", { flybyPeriapsisRatio: 0 }), RangeError),
+            assertThrows(() => signedAngleBetween([0, 0], [1, 0]), RangeError),
+            assertThrows(() => transformFrameWithOrigin({ r: [1, 0], v: [0, 1] }, [0, 0], [0, 0], "sideways"), RangeError)
+          ];
+          record("validation guards · Stage 3b inputs fail loudly", [
+            ["Cases", `${cases.filter(Boolean).length} / ${cases.length} threw expected errors`]
+          ], cases.every(Boolean),
+          "Planner and helper invalid inputs reject before NaN/Infinity can leak into a MissionPlan.");
+        }
+      }
+
+      function render() {
+        const root = document.getElementById("testList");
+        root.innerHTML = "";
+        for (const result of results) {
+          const card = document.createElement("article");
+          card.className = `test-card ${result.pass ? "pass" : "fail"}`;
+          const head = document.createElement("div");
+          head.className = "test-head";
+          head.innerHTML =
+            `<div class="test-name">${result.name}</div>` +
+            `<span class="test-badge ${result.pass ? "pass" : "fail"}">${result.pass ? "PASS" : "FAIL"}</span>`;
+          card.appendChild(head);
+
+          const grid = document.createElement("div");
+          grid.className = "test-grid";
+          for (const [label, value] of result.fields) {
+            const cell = document.createElement("div");
+            cell.innerHTML = `<span class="label">${label}</span><span class="value">${value}</span>`;
+            grid.appendChild(cell);
+          }
+          card.appendChild(grid);
+
+          if (result.note) {
+            const note = document.createElement("p");
+            note.className = "test-note";
+            note.textContent = result.note;
+            card.appendChild(note);
+          }
+          root.appendChild(card);
+        }
+
+        const passed = results.filter((r) => r.pass).length;
+        const total = results.length;
+        const allPass = passed === total;
+        const pill = document.getElementById("summaryPill");
+        pill.textContent = `${passed} / ${total} passing`;
+        pill.classList.toggle("pass", allPass);
+        pill.classList.toggle("fail", !allPass);
+        document.getElementById("summaryHeadline").textContent = allPass
+          ? "All Stage 3b mission planner tests pass."
+          : `${total - passed} Stage 3b test${total - passed === 1 ? "" : "s"} failing.`;
+        document.getElementById("summaryDetail").textContent = allPass
+          ? "Stage 3a must still remain green on the original orbital test page."
+          : "Stage 3c remains blocked until every mission planner card is green.";
+      }
+
+      try {
+        runTests();
+      } catch (err) {
+        console.error("Mission test harness crashed:", err);
+        record("Mission test harness crashed", [["Error", String(err && err.message || err)]], false,
+          "Open the browser console for the stack trace.");
+      }
+      render();
+    </script>
+
+    <script>
+      (function () {
+        var btn = document.getElementById("themeToggle");
+        if (!btn) return;
+        btn.addEventListener("click", function () {
+          var cur = document.documentElement.dataset.theme;
+          var next = cur === "light" ? "dark" : "light";
+          document.documentElement.dataset.theme = next;
+          localStorage.setItem("physicsLabTheme", next);
+          window.dispatchEvent(new CustomEvent("themechange", { detail: next }));
+        });
+      })();
+    </script>
+  </body>
+</html>

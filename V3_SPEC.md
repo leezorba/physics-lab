@@ -1,6 +1,6 @@
 # V3: Solar System Mission Simulator — Spec v2
 
-Status: Stage 3a shipped, reviewed, and patched. Stage 3b / 3c not built. Build remaining stages per ROADMAP.
+Status: Stage 3a shipped, reviewed, and patched. Stage 3b mission planner is implemented and under review patching. Stage 3c not built. Build remaining stages per ROADMAP.
 
 This document specifies the third sim for physics-lab: a 2D solar system mission simulator. It replaces "rocket goes straight up" with "rocket leaves Earth, travels to a destination, and returns." It does NOT replace the existing rocket ascent sim — that one stays as a focused atmospheric/Max-Q tool.
 
@@ -65,11 +65,13 @@ For Moon missions (special case): NO heliocentric segment. Entire trajectory is 
 - Moon SOI (vs Earth): ~66,000 km
 
 **Round-trip Δv estimates (rough, for sanity-check tests):**
-- Mars flyby: ~7–8 km/s total (no capture, no descent)
-- Mars orbit-and-return: ~9–11 km/s
-- Mars touch-and-return: ~13–16 km/s (varies hugely with descent assumptions)
-- Moon orbit-and-return: ~6 km/s
+- Mars flyby: ~3–4 km/s propulsive total (outbound burn only; Earth arrival speed is a marker, not a burn)
+- Mars orbit-and-return: ~7–9 km/s propulsive total
+- Mars touch-and-return: ~15–17 km/s propulsive total (varies hugely with descent assumptions)
+- Moon orbit-and-return: ~4.3–5.2 km/s propulsive total
 - Venus orbit-and-return: ~9–11 km/s
+
+**Earth-arrival Δv convention:** Stage 3b/3c treat Earth arrival as a return-geometry and energy marker, not a propulsive recapture burn. `earth_arrival.deltaV` is therefore `0` for Mars, Venus, and Moon missions, while the segment reports incoming `arrivalGeocentricSpeed` for educational/safety framing. Total Δv is propulsive mission Δv only. This is deliberate because v1 does not model atmospheric reentry, aerocapture, heat shields, or propulsive Earth-orbit capture. For Moon returns this is speed at the propagated Earth-arrival radius, not a true asymptotic v∞.
 
 **Key equations:**
 - Vis-viva: `v² = μ(2/r − 1/a)`
@@ -255,6 +257,7 @@ planMission(originBody, targetBody, missionType, options) → MissionPlan
 //   parkingOrbitAltitude?: number,   // km above origin surface; default 400
 //   targetOrbitAltitude?: number,    // km above target surface; default 400
 //   flybyPeriapsisRatio?: number,    // periapsis = ratio × target.radius; default 1.1
+//   surfaceDwellDuration?: number,    // seconds on target surface for touch_return; default 0
 //   t0?: number                      // mission start time (seconds since epoch); default 0
 // }
 
@@ -267,17 +270,20 @@ MissionPlan = {
       startState, endState,    // each = { r:[x,y], v:[vx,vy] }
       duration,                // seconds
       deltaV,                  // km/s (impulsive at segment start; 0 if pure coast)
+                               // earth_arrival uses deltaV=0 and reports arrivalGeocentricSpeed instead
       points: [[x,y], [x,y]…]  // pre-computed positions for animation, in the segment's frame
     },
     ...
   ],
-  totalDeltaV,                 // km/s — sum of per-segment deltaV
+  totalDeltaV,                 // km/s — sum of propulsive per-segment deltaV
   totalDuration,               // seconds — sum of per-segment durations (includes return-wait if any)
   returnWaitDuration,          // seconds — time spent at target waiting for return launch window
                                //   (orbit_return / touch_return only; 0 for flyby)
-  returnAngleMiss,             // radians, signed — flyby only; 0 for orbit_return / touch_return.
-                               //   Honest closure error: angle between return arrival point
-                               //   and Earth's actual position at that time.
+  returnAngleMiss,             // radians, signed — honest closure error between the
+                               //   propagated return arrival point and Earth's actual
+                               //   position at that time. Flyby is intentionally loose;
+                               //   orbit_return / touch_return still report residual
+                               //   propagation drift instead of hiding it.
   events: [{ t, label }]       // 'TLI burn', 'SOI crossing', 'capture burn',
                                //   'return window opens', 'flyby periapsis', etc.
 }
@@ -295,7 +301,7 @@ hohmannTransferState(r1, r2, mu, endpoint) → state
 
 // Signed Hohmann burn directions. Outer transfers are prograde at departure;
 // inner transfers are retrograde at departure.
-signedHohmannDeltaV(r1, r2, mu) → { dv1, dv2, direction1, direction2 }
+signedHohmannDeltaV(r1, r2, mu) → { dv1, dv2, direction1, direction2, isInnerTransfer }
 
 // Analytical flyby deflection angle for Stage 3b's hyperbolic test.
 hyperbolicDeflectionAngle(periapsis, vInfinity, mu) → radians
@@ -312,18 +318,20 @@ signedAngleBetween(a, b) → radians
 Mission segment patterns:
 
 - **Mars/Venus flyby (loose closure):** earth_departure → heliocentric_outbound → flyby_arc (target-centric, hyperbolic, no Δv) → heliocentric_return → earth_arrival. No `target_wait` segment exists for flyby — there's no degree of freedom to insert one. Resulting trajectory ends at Earth's orbital radius but generally not at Earth's actual position; the angular miss is reported in MissionPlan.returnAngleMiss.
-- **Mars/Venus orbit-return (strict closure):** earth_departure → heliocentric_outbound → capture (Δv) → target_orbit (parking) → **target_wait (returnWaitTime, no Δv)** → departure (Δv) → heliocentric_return → earth_arrival. The target_wait segment is what closes the loop on Earth.
-- **Mars/Venus touch-return (strict closure):** orbit_return + descent (Δv tax) + surface_dwell + ascent (Δv tax) inserted between target_orbit and target_wait. Surface_dwell can be 0 or whatever the user picks; the wait that closes the loop is still target_wait, downstream of ascent.
+- **Mars/Venus orbit-return (strict return-window matching):** earth_departure → heliocentric_outbound → capture (Δv) → target_orbit (parking) → **target_wait (returnWaitTime, no Δv)** → departure (Δv) → heliocentric_return → earth_arrival. The target_wait segment solves the return window internally, then the return coast is propagated until it crosses Earth's orbital radius. Any remaining Earth-arrival offset is labeled as an `earth_arrival.closureMarker = "residual_gap"` segment, not hidden.
+- **Mars/Venus touch-return (strict return-window matching):** orbit_return + descent (Δv tax) + surface_dwell + ascent (Δv tax) inserted between target_orbit and target_wait. Surface_dwell can be 0 or whatever the user picks; the wait that aims the return window is still target_wait, downstream of ascent.
 - **Moon flyby (loose closure):** earth_departure → translunar_coast (geocentric) → moon_flyby (moon-centric hyperbolic) → translunar_return → earth_arrival. Same loose-closure rule as Mars/Venus flyby. Moon's short transfer time (~5 days) means returnAngleMiss is small in practice (~5° at most), but report it honestly.
 - **Moon orbit-return:** earth_departure → translunar_coast → LOI capture (Δv) → moon_orbit → **moon_wait (returnWaitTime, no Δv; duration 0 in v1's simplified geocentric model)** → TEI departure (Δv) → translunar_return → earth_arrival.
 - **Moon touch-return:** add descent + surface_dwell + ascent Δv around moon_orbit, before moon_wait.
 
 **Tests (must pass before 3c):**
-- `planMission(earth, mars, 'orbit_return')` → `totalDuration` ≈ 2 × 259 days **+ returnWaitDuration** (typically 400–500 days for Mars); `totalDeltaV` in 9–11 km/s range; `returnWaitDuration` > 0; `returnAngleMiss` == 0.
-- `planMission(earth, moon, 'orbit_return')` → `totalDuration` ≈ 10 days + small `returnWaitDuration`; `totalDeltaV` in 5–7 km/s range; `returnAngleMiss` == 0.
-- `planMission(earth, mars, 'flyby')` → `totalDuration` ≈ 2 × 259 days; `totalDeltaV` in 6–9 km/s range; `returnWaitDuration` == 0; `returnAngleMiss` reported (any value, but **must be non-zero in general** — flag if implementer accidentally faked closure).
-- **Patched-conic continuity (all mission types):** position and velocity at end of segment N (after frame transform) match start of segment N+1 to within 0.01% relative.
-- **Strict-closure replay (orbit_return / touch_return only):** animating all segments in sequence produces a closed trajectory ending within 1% of starting position.
+- `planMission(earth, mars, 'orbit_return')` → `totalDuration` ≈ 970–990 days including return wait and labeled arrival-gap duration; `totalDeltaV` in 7–9 km/s range under the Earth-arrival-speed convention; `returnWaitDuration` > 0; `returnAngleMiss` is finite and reported.
+- `planMission(earth, venus, 'orbit_return')` → `totalDuration` ≈ 740–790 days including return wait and labeled arrival-gap duration; `totalDeltaV` in 9–11 km/s range; `returnWaitDuration` > 0; `returnAngleMiss` is finite and reported; `signedHohmannDeltaV(...).direction1 === -1`.
+- `planMission(earth, moon, 'orbit_return')` → `totalDuration` ≈ 10 days + small return-arrival marker duration; `totalDeltaV` in 4.3–5.2 km/s range under the Earth-arrival-speed convention; `returnAngleMiss` is finite and reported.
+- `planMission(earth, mars, 'flyby')` → `totalDuration` ≈ 2 × 259 days; `totalDeltaV` in 3–4 km/s range; `returnWaitDuration` == 0; `returnAngleMiss` reported (any value, but **must be non-zero in general** — flag if implementer accidentally faked closure).
+- **Interplanetary/translunar arc sampling:** `heliocentric_outbound`, `heliocentric_return`, `translunar_coast`, and `translunar_return` points must be generated by two-body propagation with `closedOrbitDt()` resolution, not straight-line interpolation.
+- **Patched-conic continuity (all mission types):** independently propagate coast segment N, transform frames at the boundary, then check it matches start of segment N+1; position tolerance < 0.01% relative and velocity tolerance < 0.1% relative.
+- **Strict-return residual gap (orbit_return / touch_return only):** use `earth_arrival.startState.r`, not the hardcoded final point, to verify the propagated return state. The browser test must require a non-zero `earth_arrival.duration`, `closureGapDistance`, and `closureMarker = "residual_gap"` when propagation misses Earth's actual position.
 - **Loose-closure replay (flyby only):** animating all segments produces a return arrival point at Earth's *orbital radius* within 1%, but at angular position offset by `returnAngleMiss` ± 0.5°. Do NOT assert positional closure for flyby.
 - **Hyperbolic deflection accuracy:** for a Mars flyby at 1.1× target radius with v_∞ = 2.65 km/s, the analytical deflection angle is `δ = 2·arcsin(1/(1 + r_p·v_∞²/μ))`. Propagated trajectory must match analytical δ within **5%**. **If this test fails, switch hyperbolic segments to RK4 with the same dt heuristic and re-run. Do not relitigate the integrator choice.** Document the swap in the test report; closed orbits stay on semi-implicit Euler regardless.
 
@@ -345,10 +353,12 @@ Now build `public/astro/solar.html`. Uses orbital.js. Features:
   - The current effective speed multiplier is shown in the UI (e.g., "Speed: 100,000× → throttled to 50,000× for capture burn").
 - **Mission timeline:** current segment label, total elapsed/remaining (in mission seconds, displayed as days/hours), and a horizontal segment-bar showing all upcoming events.
 - **Δv readout:** per-maneuver list with running total, in km/s.
-- **Closure readout:** for `flyby` missions, display `returnAngleMiss` honestly (e.g., "Return arrival: 12° behind Earth — see footer for why"). For `orbit_return` / `touch_return`, display "Return arrival: closed loop ✓" and the wait duration.
+- **Earth arrival marker:** show incoming Earth-arrival `arrivalGeocentricSpeed` separately from total Δv. It is not counted as a burn because v1 does not model reentry, aerocapture, or propulsive Earth-orbit capture.
+- **Closure readout:** for `flyby` missions, display `returnAngleMiss` honestly (e.g., "Return arrival: 12° behind Earth — see footer for why"). For `orbit_return` / `touch_return`, display the return wait plus any residual `closureGapDistance` honestly; do not show "closed loop" if the propagated state misses Earth.
 - **"Skip to next event"** button — jumps simulation time to the next entry in MissionPlan.events. Useful for skipping return-phase waits.
 - **"True scale toggle"** for planet sizes (default: exaggerated; toggled: real, expect dots).
-- **Footer:** equations, glossary, scope/limitations (matches V1/V2 footer style). Must explicitly cover: why Mars round trips take 2.5 years (synodic wait), why flyby missions don't naturally close on Earth (no Δv degree of freedom), and Apollo's free-return as the real-world workaround.
+- **Footer:** equations, glossary, scope/limitations (matches V1/V2 footer style). Must explicitly cover: why Mars round trips take 2.5 years (synodic wait), why flyby missions don't naturally close on Earth (no Δv degree of freedom), Apollo's free-return as the real-world workaround, and why Earth-arrival speed is shown as an energy/safety marker instead of counted as Δv. Footer copy: "Earth arrival speed is shown as an energy/safety marker. It is not included in total Δv because this version stops at Earth-return geometry and does not model atmospheric reentry, aerocapture, or propulsive Earth-orbit capture."
+- **Stage 3c UI concern:** if a deflected flyby orbit does not cross Earth's orbital radius, Stage 3b may use an unbent post-encounter conic for the loose-return marker and attach `returnPropagationNote`. The Stage 3c renderer must avoid a final-frame snap caused by that fallback endState overwrite and label the fallback instead of presenting it as a physical deflected path.
 
 Visual style matches lab.css (dark default, deep blue accent, Inter/Space Grotesk). Page chrome per AGENTS.md → Page Chrome (favicon, theme toggle, focus toggle, site-credits footer, theme init script).
 
@@ -367,6 +377,7 @@ User should leave understanding:
 - Why Earth↔Moon is ~5 days vs Earth↔Mars 259 days (geocentric ellipse vs heliocentric ellipse, very different scales)
 - What patched conics is and why simulators use it (one-body-at-a-time approximation)
 - That impulsive Δv is an idealization (real burns last minutes, not instants)
+- Why Earth arrival speed is an energy/safety marker, not part of total Δv in v1
 
 Footer carries the explanation. Same care as V1 and V2 footers.
 
@@ -378,6 +389,7 @@ Footer carries the explanation. Same care as V1 and V2 footers.
 - Pre-computed trajectory; no real-time piloting
 - 2D only
 - Δv shown is impulsive (instantaneous burn); real engines burn over minutes, which slightly reduces effective Δv (gravity loss)
+- Earth arrival speed is shown but not counted in total Δv because this version does not model atmospheric reentry, aerocapture, heat shields, or propulsive Earth-orbit capture
 - No gravity assists, no aerocapture, no low-energy transfers
 - No mass/fuel modeling — Δv shown but not converted to propellant via the Tsiolkovsky equation
 - Touch-and-return descent/ascent is a hand-wavy Δv tax, not a real surface mission model

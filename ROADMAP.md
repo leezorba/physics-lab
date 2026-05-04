@@ -137,6 +137,7 @@ Each stage gets reviewed before the next starts — same process that worked for
 - Reason: V1 produces no orbital state V3 can consume — no horizontal velocity, gravity turn, or orbital insertion.
 - Merging would either fake the handoff or require rewriting V1, weakening its focused atmospheric / Max-Q lesson.
 - Future option: V4 "Mission Story Mode" can stitch V1 + V3 conceptually with a step-through narrative and combined Δv budget card, after V3 ships and feedback warrants it.
+- Stage 3b labels strict-return residual drift instead of correcting it. Iterative targeting would require a shooting solve on return wait/departure timing, which is its own Stage 3b.5/3c engineering project and should not be bolted onto the mission planner patch.
 
 ---
 
