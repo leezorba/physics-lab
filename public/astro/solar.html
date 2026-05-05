@@ -688,18 +688,26 @@
       const DEFAULT_SPEED_INDEX = SPEED_STOPS.indexOf(DEFAULT_SPEED);
       const EVENT_SPEED_CAP = 50000;
       const EVENT_HOLD_MS = 900;
-      const SOI_HANDOFF_HOLD_MS = 2800;
-      const SOI_AUTO_LOOKAHEAD_WALL_SECONDS = 1.5;
       const NEAR_EVENT_LABEL_SECONDS = 86400;
       const LOCAL_VISUAL_SPEED_CAP = 1000;
       const CANVAS_ZOOM_MIN = 0.55;
       const CANVAS_ZOOM_MAX = 3.5;
       const RAMP_SECONDS = 0.5;
       const PARKING_ALTITUDE = 400;
+      const RETURN_DEPARTURE_SYSTEM_HANDOFF_FRACTION = 0.72;
+      const RETURN_COAST_PULLAWAY_DURATION = 3 * 86400;
+      const RETURN_CRUISE_RAMP_SECONDS = 3.5;
+      const RETURN_CRUISE_RAMP_WINDOW = 5 * 86400;
+      const TRANSLUNAR_RETURN_RAMP_WINDOW = 2 * 86400;
+      const VIEW_TRANSITION_MS = 260;
       const EVENT_SEGMENTS = new Set([
         "earth_departure",
+        "target_arrival",
+        "moon_arrival",
         "capture",
         "departure",
+        "target_departure",
+        "moon_departure",
         "descent",
         "ascent",
         "flyby_arc",
@@ -730,7 +738,22 @@
         "earth_departure",
         "earth_arrival"
       ]);
-      const SOI_HANDOFF_EVENT = /SOI crossing|capture burn|departure burn|flyby periapsis|LOI capture burn|TEI departure burn/i;
+      const SOI_SEGMENTS = new Set([
+        "target_arrival",
+        "moon_arrival",
+        "target_departure",
+        "moon_departure",
+        "flyby_arc",
+        "moon_flyby"
+      ]);
+      const RETURN_DEPARTURE_SEGMENTS = new Set([
+        "target_departure",
+        "moon_departure"
+      ]);
+      const RETURN_COAST_SEGMENTS = new Set([
+        "heliocentric_return",
+        "translunar_return"
+      ]);
       const TARGET_LABELS = {
         mars: "Mars",
         venus: "Venus",
@@ -745,6 +768,8 @@
         earth_departure: "Earth departure",
         heliocentric_outbound: "Outbound heliocentric coast",
         translunar_coast: "Translunar coast",
+        target_arrival: "Target SOI arrival",
+        moon_arrival: "Moon SOI arrival",
         flyby_arc: "Flyby arc",
         moon_flyby: "Moon flyby",
         heliocentric_return: "Return heliocentric coast",
@@ -760,6 +785,8 @@
         ascent: "Ascent burn",
         departure: "Departure burn",
         tei_departure: "TEI departure burn",
+        target_departure: "Target SOI departure",
+        moon_departure: "Moon SOI departure",
         earth_arrival: "Earth arrival marker"
       };
 
@@ -833,6 +860,7 @@
           elapsed: 0,
           actualElapsed: 0
         },
+        viewTransition: null,
         theme: {},
         marsProfileMs: null,
         useRenderStride: false
@@ -870,6 +898,7 @@
         canvas.width = Math.round(rect.width * ratio);
         canvas.height = Math.round(rect.height * ratio);
         ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        state.viewTransition = null;
         drawScene();
       }
 
@@ -1039,28 +1068,6 @@
         return [...state.events].reverse().find((event) => event.displayT < state.missionTime - offsetSeconds);
       }
 
-      function isSoiHandoffEvent(event) {
-        return Boolean(event && SOI_HANDOFF_EVENT.test(event.label));
-      }
-
-      function soiAutoLookahead() {
-        const raw = Math.max(state.effectiveSpeed, state.dwellSpeed, EVENT_SPEED_CAP) * SOI_AUTO_LOOKAHEAD_WALL_SECONDS;
-        const min = state.destination === "moon" ? 2 * 3600 : 12 * 3600;
-        const max = state.destination === "moon" ? 0.75 * 86400 : 6 * 86400;
-        return Math.max(min, Math.min(max, raw));
-      }
-
-      function nearbySoiHandoffEvent(time) {
-        const windowSeconds = soiAutoLookahead();
-        return state.events.find((event) => {
-          const untilEvent = event.displayT - time;
-          return !event.isGap &&
-            isSoiHandoffEvent(event) &&
-            untilEvent >= 0 &&
-            untilEvent <= windowSeconds;
-        });
-      }
-
       function crossedEvents(startTime, endTime) {
         if (!state.events.length || endTime <= startTime) return null;
         const events = state.events.filter((event) => {
@@ -1073,11 +1080,11 @@
 
       function holdEventFrom(events) {
         if (!events?.length) return null;
-        return events.find(isSoiHandoffEvent) || events[0];
+        return events[0];
       }
 
-      function holdDurationFor(event) {
-        return isSoiHandoffEvent(event) ? SOI_HANDOFF_HOLD_MS : EVENT_HOLD_MS;
+      function holdDurationFor() {
+        return EVENT_HOLD_MS;
       }
 
       function updatePlaybackButtons() {
@@ -1120,12 +1127,49 @@
         return "";
       }
 
+      function returnCoastPullawayDuration(entry) {
+        if (!entry || !RETURN_COAST_SEGMENTS.has(entry.segment.type)) return 0;
+        return entry.segment.type === "translunar_return"
+          ? entry.displayDuration
+          : RETURN_COAST_PULLAWAY_DURATION;
+      }
+
+      function returnCoastRampWindow(entry) {
+        if (!entry || !RETURN_COAST_SEGMENTS.has(entry.segment.type)) return 0;
+        return entry.segment.type === "translunar_return"
+          ? TRANSLUNAR_RETURN_RAMP_WINDOW
+          : RETURN_CRUISE_RAMP_WINDOW;
+      }
+
+      function returnCoastPullawayReason(time) {
+        const entry = activeEntry(time);
+        const duration = returnCoastPullawayDuration(entry);
+        if (!duration) return "";
+        return segmentElapsed(entry, time) < Math.min(duration, entry.displayDuration)
+          ? "return coast pull-away"
+          : "";
+      }
+
+      function speedPhaseReason(time) {
+        return eventPhaseReason(time) || returnCoastPullawayReason(time);
+      }
+
       function targetSpeedFor(time) {
-        const reason = eventPhaseReason(time);
+        const reason = speedPhaseReason(time);
         return {
           value: reason ? Math.min(state.dwellSpeed, EVENT_SPEED_CAP) : state.dwellSpeed,
           reason
         };
+      }
+
+      function speedRampSecondsFor(time) {
+        const entry = activeEntry(time);
+        if (!entry || !RETURN_COAST_SEGMENTS.has(entry.segment.type)) return RAMP_SECONDS;
+        const elapsed = segmentElapsed(entry, time);
+        const smoothingWindow = returnCoastPullawayDuration(entry) + returnCoastRampWindow(entry);
+        return elapsed < Math.min(smoothingWindow, entry.displayDuration)
+          ? RETURN_CRUISE_RAMP_SECONDS
+          : RAMP_SECONDS;
       }
 
       function autoZoom(time) {
@@ -1136,16 +1180,20 @@
         /*
           Stage 3c zoom snap rule:
           - System view during heliocentric/translunar coast and Earth parking markers.
-          - SOI is a short automatic handoff view around SOI/capture/departure
-            events, then playback settles into System or Local. This avoids the
-            old high-speed jump from interplanetary cruise straight into orbit.
+          - SOI view is driven by real target/Moon SOI traversal segments, not
+            by upcoming event labels.
           - Local view owns target orbit, target wait, descent, ascent, and
             surface dwell after the handoff.
           Manual buttons override this discrete snap until the next plan is launched.
         */
-        if (isSoiHandoffEvent(state.holdEvent)) return "soi";
         if (LOCAL_SEGMENTS.has(type)) return "local";
-        if (nearbySoiHandoffEvent(time)) return "soi";
+        if (RETURN_DEPARTURE_SEGMENTS.has(type)) {
+          const progress = entry.displayDuration > 0
+            ? segmentElapsed(entry, time) / entry.displayDuration
+            : 1;
+          return progress >= RETURN_DEPARTURE_SYSTEM_HANDOFF_FRACTION ? "system" : "soi";
+        }
+        if (SOI_SEGMENTS.has(type)) return "soi";
         if (SYSTEM_SEGMENTS.has(type)) return "system";
         return "system";
       }
@@ -1463,8 +1511,9 @@
       }
 
       function segmentColor(segment) {
+        if (/target_arrival|moon_arrival|flyby/.test(segment.type)) return state.theme.soi;
+        if (/target_departure|moon_departure/.test(segment.type)) return state.theme.return;
         if (/return|earth_arrival/.test(segment.type)) return state.theme.return;
-        if (/flyby/.test(segment.type)) return state.theme.soi;
         if (segment.deltaV > 0 || /descent|ascent|capture|departure/.test(segment.type)) return state.theme.craft;
         return state.theme.transfer;
       }
@@ -1473,6 +1522,7 @@
         const segment = entry.segment;
         if (segment.type === "earth_arrival") return;
         if (PARKING_SEGMENTS.has(segment.type)) return;
+        if (segment.duration === 0 && /capture|departure/.test(segment.type)) return;
         if (viewMode === "soi" && view.outsideSoiAutoFit && entry !== activeEntry()) return;
         if (entry.displayStart > state.missionTime) return;
         if (viewMode !== "system") {
@@ -1598,10 +1648,21 @@
         ctx.restore();
       }
 
+      function snapshotCanvas() {
+        if (!canvas.width || !canvas.height) return null;
+        const snapshot = document.createElement("canvas");
+        snapshot.width = canvas.width;
+        snapshot.height = canvas.height;
+        const snapshotCtx = snapshot.getContext("2d");
+        if (!snapshotCtx) return null;
+        snapshotCtx.drawImage(canvas, 0, 0);
+        return snapshot;
+      }
+
       function drawPanel(view) {
         const viewMode = view.mode;
         const rect = canvas.getBoundingClientRect();
-        const reason = eventPhaseReason(state.missionTime);
+        const reason = speedPhaseReason(state.missionTime);
         const arrival = getArrivalSegment();
         const showAutoFitNote = view.outsideSoiAutoFit;
         const statusLineCount = (reason ? 1 : 0) +
@@ -1643,6 +1704,18 @@
         const viewMode = state.plan && (state.running || state.missionTime > 0)
           ? autoZoom(state.missionTime)
           : state.currentZoom;
+        const previousViewMode = state.currentZoom;
+        const now = performance.now();
+        if (
+          previousViewMode &&
+          previousViewMode !== viewMode &&
+          state.plan &&
+          !state.manualZoom &&
+          (state.running || state.missionTime > 0)
+        ) {
+          const snapshot = snapshotCanvas();
+          if (snapshot) state.viewTransition = { snapshot, startedAt: now };
+        }
         state.currentZoom = viewMode;
         viewLabel.textContent = viewMode.toUpperCase();
         zoomButtons.forEach((button) => button.classList.toggle("active", button.dataset.zoom === viewMode));
@@ -1656,6 +1729,17 @@
           state.playbackSegments.forEach((entry) => drawSegmentPath(entry, view, viewMode));
           drawResidualGap(view, viewMode);
           drawCraft(view);
+        }
+        if (state.viewTransition) {
+          const progress = (now - state.viewTransition.startedAt) / VIEW_TRANSITION_MS;
+          if (progress < 1) {
+            ctx.save();
+            ctx.globalAlpha = 1 - progress;
+            ctx.drawImage(state.viewTransition.snapshot, 0, 0, rect.width, rect.height);
+            ctx.restore();
+          } else {
+            state.viewTransition = null;
+          }
         }
         drawPanel(view);
       }
@@ -1799,24 +1883,12 @@
         const entry = activeEntry();
         const target = TARGET_LABELS[state.destination];
         const segment = entry?.segment.type;
-        const handoffEvent = nearbySoiHandoffEvent(state.missionTime);
         let title;
         let current;
 
-        if (isSoiHandoffEvent(state.holdEvent)) {
-          if (/departure|TEI/i.test(state.holdEvent.label)) {
-            title = "Phase: SOI handoff";
-            current = `Leaving ${target} operations and handing back to the long return coast. The departure burn is modeled as instantaneous.`;
-          } else if (/flyby/i.test(state.holdEvent.label)) {
-            title = "Phase: flyby";
-            current = `Passing through ${target}'s sphere of influence without stopping. The close encounter changes the return path.`;
-          } else {
-            title = "Phase: SOI handoff";
-            current = `Entering ${target}'s sphere of influence. Capture into parking orbit is modeled as an instantaneous burn, so Local view follows after this handoff.`;
-          }
-        } else if (handoffEvent && !LOCAL_SEGMENTS.has(segment)) {
-          title = "Phase: SOI approach";
-          current = `${target}'s sphere of influence is coming up. The view briefly auto-fits ${target} and the spacecraft before the instantaneous handoff.`;
+        if (state.holdEvent) {
+          title = "Phase: event marker";
+          current = `${state.holdEvent.label}.`;
         } else if (state.missionTime >= state.playbackDuration) {
           if (state.missionType === "flyby") {
             title = "End: loose flyby return marker";
@@ -1838,6 +1910,11 @@
           case "translunar_coast":
             title = "Phase: outbound coast";
             current = `The craft is coasting from Earth toward the Moon. System view shows Earth, the Moon, and the transfer arc.`;
+            break;
+          case "target_arrival":
+          case "moon_arrival":
+            title = "Phase: SOI arrival";
+            current = `Approaching ${target} inside its sphere of influence before the capture burn.`;
             break;
           case "capture":
           case "loi_capture":
@@ -1871,13 +1948,22 @@
             title = "Phase: return departure";
             current = `Leaving ${target} orbit for the return trip.`;
             break;
+          case "target_departure":
+          case "moon_departure":
+            title = "Phase: SOI departure";
+            current = `Leaving ${target}'s sphere of influence for the return transfer.`;
+            break;
           case "heliocentric_return":
             title = "Phase: return coast";
-            current = `The craft is coasting around the Sun from ${target} back toward Earth's orbit.`;
+            current = returnCoastPullawayReason(state.missionTime)
+              ? `The craft is pulling away from ${target}'s SOI before the long return cruise speeds up.`
+              : `The craft is coasting around the Sun from ${target} back toward Earth's orbit.`;
             break;
           case "translunar_return":
             title = "Phase: return coast";
-            current = `The craft is coasting back from the Moon toward Earth.`;
+            current = returnCoastPullawayReason(state.missionTime)
+              ? `The craft is pulling away from the Moon's SOI before the return cruise speeds up.`
+              : `The craft is coasting back from the Moon toward Earth.`;
             break;
           case "flyby_arc":
           case "moon_flyby":
@@ -1921,9 +2007,10 @@
         segmentLabel.textContent = activeSegmentLabel();
         elapsedValue.textContent = formatDuration(state.missionTime);
         remainingValue.textContent = formatDuration(Math.max(0, state.playbackDuration - state.missionTime));
+        const speedTarget = targetSpeedFor(state.missionTime);
         effectiveSpeed.textContent = !state.running && isPlaybackComplete()
           ? "0×"
-          : eventPhaseReason(state.missionTime)
+          : speedTarget.reason
           ? `${formatSpeed(state.dwellSpeed)} → ${formatSpeed(state.effectiveSpeed)}`
           : formatSpeed(state.effectiveSpeed);
         totalDv.textContent = state.plan.totalDeltaV.toFixed(3);
@@ -1993,7 +2080,7 @@
         } else {
           state.missionTime = Math.min(state.playbackDuration, event.displayT);
         }
-        state.holdEvent = isSoiHandoffEvent(event) ? event : null;
+        state.holdEvent = event || null;
         state.holdUntil = state.holdEvent ? performance.now() + holdDurationFor(state.holdEvent) : 0;
         if (state.holdEvent) state.effectiveSpeed = Math.min(state.effectiveSpeed, EVENT_SPEED_CAP);
         syncParkingVisualToActive();
@@ -2095,7 +2182,7 @@
         state.holdUntil = 0;
         state.holdEvent = null;
         const target = targetSpeedFor(state.missionTime);
-        const ramp = Math.min(1, wallDt / RAMP_SECONDS);
+        const ramp = Math.min(1, wallDt / speedRampSecondsFor(state.missionTime));
         state.effectiveSpeed += (target.value - state.effectiveSpeed) * ramp;
         const previousTime = state.missionTime;
         let nextTime = state.missionTime + wallDt * state.effectiveSpeed;

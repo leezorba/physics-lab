@@ -34,6 +34,11 @@ The UI should answer three beginner questions for every tab without requiring a 
 - **No invisible clamps.** If physics enforces a boundary, draw the boundary. The wall, floor, and ramp corner are all rendered explicitly.
 - **Removed decoration that pretends to be physics.** The original Stick-Slip canvas drew a hardcoded dark bar on the left that read as a fixed anchor but had no physical role (the spring is anchored on the right via the teal driver bar). Removed.
 
+## Stick-Slip Diagram
+
+- **Spring stretch should be smooth, not re-counted.** The spring uses a fixed eight-coil sine-wave path with rounded line caps/joins. Do not derive the coil count from the current spring length; that makes new zigzags appear as the spring stretches and feels like geometry popping into existence.
+- **Force arrows originate on the block.** `F_s` starts near the spring attachment on the upper-right/upper-left face and points in the spring-force direction. `F_f` starts near the lower contact edge and points opposite the spring force. `F_n` starts at the top face. This keeps the arrows tied to the free-body diagram instead of floating in the spring or hovering off the block.
+
 ## Pause / Resume
 
 - **One pause button covers all three tabs.** Lives in the controls-card header next to reset, toggles `⏸` / `▶`. The animation loop skips `updatePhysics(dt)` when `state.paused` is true; render still runs so the canvas stays current.
@@ -64,4 +69,6 @@ For friction UI changes, verify:
 - pause via `⏸` and via Spacebar both freeze elapsed motion; resume continues without teleporting;
 - the other two tabs' telemetry/state remain unchanged when one tab is reset or paused;
 - theme toggle dark ↔ light redraws the canvas correctly (wall, floor, ramp, block, arrows);
+- Stick-Slip spring stretches with a stable smooth coil count and does not pop in new zigzags as it expands;
+- Stick-Slip `F_s`, `F_f`, and `F_n` arrows attach visually to the block faces/contact edge and stay readable over the spring;
 - focus-mode toggle still collapses the side panel.

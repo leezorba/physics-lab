@@ -47,7 +47,41 @@
         height: min(56vw, 500px);
         min-height: 360px;
       }
-      
+
+      .rocket-page .sim-canvas-wrap {
+        position: relative;
+      }
+
+      .rocket-page .sim-canvas-wrap .focus-toggle {
+        top: 12px;
+        right: 12px;
+      }
+
+      .rocket-page .sim-controls {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .rocket-page .sim-controls .btn {
+        min-height: 56px;
+        padding: 1rem 1.4rem;
+        font-size: 1rem;
+        letter-spacing: 0.04em;
+      }
+
+      .rocket-page .sim-controls .btn-pause,
+      .rocket-page .sim-controls .btn-reset {
+        padding: 1rem 1.2rem;
+      }
+
+      .rocket-page .sim-controls .btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+        transform: none;
+      }
+
       .rocket-page .charts-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -64,10 +98,6 @@
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
         gap: 18px;
         margin-bottom: 18px;
-      }
-      
-      .rocket-page .button-row {
-        grid-template-columns: minmax(140px, 1fr) auto;
       }
 
       /* Match the friction/solar treatment: numbered footer headings
@@ -150,48 +180,6 @@
       <!-- MAIN GRID: animation + telemetry -->
       <div class="main-grid">
         <div class="sim-pane">
-          <button
-            class="focus-toggle"
-            id="focusToggle"
-            type="button"
-            aria-label="Toggle focus mode"
-            title="Toggle focus mode"
-          >
-            <svg
-              class="focus-icon focus-icon-expand"
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              width="22"
-              height="22"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M8 3H5a2 2 0 0 0-2 2v3" />
-              <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
-              <path d="M3 16v3a2 2 0 0 0 2 2h3" />
-              <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
-            </svg>
-            <svg
-              class="focus-icon focus-icon-collapse"
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              width="22"
-              height="22"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M8 3v3a2 2 0 0 1-2 2H3" />
-              <path d="M21 8h-3a2 2 0 0 1-2-2V3" />
-              <path d="M3 16h3a2 2 0 0 1 2 2v3" />
-              <path d="M16 21v-3a2 2 0 0 1 2-2h3" />
-            </svg>
-          </button>
           <div class="pane-label">
             ↥ ASCENT VIEW
             <span
@@ -200,7 +188,56 @@
               >EARTH</span
             >
           </div>
-          <canvas id="rocket-canvas" width="800" height="500"></canvas>
+          <div class="sim-canvas-wrap">
+            <button
+              class="focus-toggle"
+              id="focusToggle"
+              type="button"
+              aria-label="Toggle focus mode"
+              title="Toggle focus mode"
+            >
+              <svg
+                class="focus-icon focus-icon-expand"
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                width="22"
+                height="22"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+                <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+                <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+                <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+              </svg>
+              <svg
+                class="focus-icon focus-icon-collapse"
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                width="22"
+                height="22"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M8 3v3a2 2 0 0 1-2 2H3" />
+                <path d="M21 8h-3a2 2 0 0 1-2-2V3" />
+                <path d="M3 16h3a2 2 0 0 1 2 2v3" />
+                <path d="M16 21v-3a2 2 0 0 1 2-2h3" />
+              </svg>
+            </button>
+            <canvas id="rocket-canvas" width="800" height="500"></canvas>
+          </div>
+          <div class="sim-controls">
+            <button class="btn btn-launch" id="launch-btn">▲ LAUNCH</button>
+            <button class="btn btn-pause" id="pause-btn" disabled>⏸ PAUSE</button>
+            <button class="btn btn-reset" id="reset-btn">↻ RESET</button>
+          </div>
         </div>
 
         <div class="telemetry">
@@ -294,28 +331,28 @@
           <div class="slider-group">
             <div class="slider-label">
               <span>THRUST</span
-              ><span class="v"><span id="thrust-disp">490</span> kN</span>
+              ><span class="v"><span id="thrust-disp">700</span> kN</span>
             </div>
             <input
               type="range"
               id="thrust"
               min="200"
               max="1500"
-              value="490"
+              value="700"
               step="10"
             />
           </div>
           <div class="slider-group">
             <div class="slider-label">
               <span>FUEL MASS</span
-              ><span class="v"><span id="fuel-disp">14000</span> kg</span>
+              ><span class="v"><span id="fuel-disp">15000</span> kg</span>
             </div>
             <input
               type="range"
               id="fuel"
               min="2000"
               max="40000"
-              value="14000"
+              value="15000"
               step="500"
             />
           </div>
@@ -361,11 +398,6 @@
               step="1"
             />
           </div>
-        </div>
-
-        <div class="button-row">
-          <button class="btn btn-launch" id="launch-btn">▲ LAUNCH</button>
-          <button class="btn btn-reset" id="reset-btn">↻ RESET</button>
         </div>
 
         <div class="equation-strip">
@@ -443,6 +475,15 @@
                 runs constant thrust (no throttle), which makes Max-Q
                 artificially severe — that's deliberate, to make the danger
                 viscerally obvious.
+              </p>
+            </div>
+            <div class="glossary-item">
+              <h4>Visual cues</h4>
+              <p>
+                The pad and terrain are scale cues. The open arcs around the
+                rocket appear only when Q is meaningful; they show aerodynamic
+                loading, not a force field. Low-altitude exhaust may flare
+                against the pad, but landing guidance is not modeled.
               </p>
             </div>
           </div>
@@ -732,9 +773,13 @@
           </div>
           <div class="planet-card">
             <h4>ROCKET (defaults, New Shepard-class)</h4>
-            <p><code>Thrust</code>: 490 kN (BE-3 engine ballpark)</p>
+            <p>
+              <code>Thrust</code>: 700 kN (BE-3 ballpark; sea-level rating is
+              ~490 kN and vacuum is ~710 kN, so 700 approximates the average
+              effective thrust over an ascent as ambient pressure drops)
+            </p>
             <p><code>Dry mass</code>: 20,000 kg</p>
-            <p><code>Fuel mass</code>: 14,000 kg</p>
+            <p><code>Fuel mass</code>: 15,000 kg</p>
             <p><code>Cd</code>: 0.5</p>
             <p><code>A</code>: 10.8 m² (≈3.7 m diameter)</p>
             <p>
@@ -762,6 +807,13 @@
               <strong>Constant thrust.</strong> Real engines throttle down at
               Max-Q. Here thrust is fixed until fuel runs out, which makes Max-Q
               higher than it would be on a real well-designed flight.
+            </li>
+            <li>
+              <strong>No reusable-booster guidance.</strong> Modern boosters
+              can restart engines, deploy landing gear, and target a pad. This
+              sandbox may draw low-altitude exhaust visually, but it does not
+              reserve propellant, restart engines, deploy legs, or solve a
+              soft touchdown.
             </li>
             <li>
               <strong>Constant Cd.</strong> Drag coefficient actually changes
@@ -836,6 +888,7 @@
           name: "EARTH",
           spaceAlt: 100000,
           surfaceColor: "#1e3a5f",
+          shadowColor: "#081428",
         },
         mars: {
           g: 3.71,
@@ -847,6 +900,7 @@
           name: "MARS",
           spaceAlt: 80000,
           surfaceColor: "#7c2d12",
+          shadowColor: "#3a1306",
         },
         venus: {
           g: 8.87,
@@ -858,6 +912,7 @@
           name: "VENUS",
           spaceAlt: 250000,
           surfaceColor: "#78350f",
+          shadowColor: "#3a1804",
         },
         moon: {
           g: 1.62,
@@ -869,6 +924,7 @@
           name: "MOON",
           spaceAlt: 50000,
           surfaceColor: "#374151",
+          shadowColor: "#161a23",
         },
         titan: {
           g: 1.35,
@@ -880,6 +936,7 @@
           name: "TITAN",
           spaceAlt: 600000,
           surfaceColor: "#713f12",
+          shadowColor: "#3a1f06",
         },
       };
 
@@ -888,10 +945,10 @@
       // ============================================================
       let currentPlanet = "earth";
       let rocket = {
-        thrust: 490000, // N
+        thrust: 700000, // N
         m_dry: 20000, // kg
-        m_fuel: 14000, // kg
-        m_fuel_initial: 14000,
+        m_fuel: 15000, // kg
+        m_fuel_initial: 15000,
         Cd: 0.5,
         A: 10.8, // m²
         Isp: 350, // specific impulse (s) — atmospheric LH2/LOX middle ground
@@ -899,16 +956,18 @@
 
       let sim = {
         running: false,
+        paused: false,
         done: false,
         h: 0,
         v: 0,
         a: 0,
         t: 0,
-        fuel: 14000,
+        fuel: 15000,
         q: 0,
         drag: 0,
         maxQ: 0,
         maxQAlt: 0,
+        maxQFlashUntil: 0,
         history: [], // { t, h, v, q }
         hitMaxQ: false,
       };
@@ -969,13 +1028,45 @@
         if (sim.running) return;
         if (sim.done) resetSim();
         sim.running = true;
+        sim.paused = false;
         document.getElementById("status-led").classList.add("live");
         document.getElementById("status-text").textContent = "IN FLIGHT";
+        const pauseBtn = document.getElementById("pause-btn");
+        pauseBtn.disabled = false;
+        pauseBtn.innerHTML = "⏸ PAUSE";
       });
       $("reset-btn").addEventListener("click", resetSim);
+      $("pause-btn").addEventListener("click", togglePause);
+
+      function togglePause() {
+        if (!sim.running) return;
+        sim.paused = !sim.paused;
+        const pauseBtn = document.getElementById("pause-btn");
+        pauseBtn.innerHTML = sim.paused ? "▶ RESUME" : "⏸ PAUSE";
+        document.getElementById("status-text").textContent = sim.paused
+          ? "PAUSED"
+          : "IN FLIGHT";
+        if (!sim.paused) {
+          // Reset wall-clock anchor so the next frame's dt is one frame's
+          // worth, not the entire paused duration.
+          lastFrame = performance.now();
+          accumulator = 0;
+        }
+      }
+
+      // Spacebar toggles pause from anywhere on the page, except while
+      // typing in form fields.
+      document.addEventListener("keydown", (e) => {
+        if (e.code !== "Space") return;
+        const t = document.activeElement && document.activeElement.tagName;
+        if (t === "INPUT" || t === "TEXTAREA") return;
+        e.preventDefault();
+        togglePause();
+      });
 
       function resetSim() {
         sim.running = false;
+        sim.paused = false;
         sim.done = false;
         sim.h = 0;
         sim.v = 0;
@@ -986,10 +1077,14 @@
         sim.drag = 0;
         sim.maxQ = 0;
         sim.maxQAlt = 0;
+        sim.maxQFlashUntil = 0;
         sim.history = [];
         sim.hitMaxQ = false;
         document.getElementById("status-led").classList.remove("live");
         document.getElementById("status-text").textContent = "STANDBY";
+        const pauseBtn = document.getElementById("pause-btn");
+        pauseBtn.disabled = true;
+        pauseBtn.innerHTML = "⏸ PAUSE";
         updateTelemetry();
       }
 
@@ -1054,6 +1149,7 @@
           sim.running = false;
           document.getElementById("status-led").classList.remove("live");
           document.getElementById("status-text").textContent = "GROUNDED";
+          document.getElementById("pause-btn").disabled = true;
         }
 
         sim.t += dt;
@@ -1085,17 +1181,21 @@
             sim.running = false;
             document.getElementById("status-led").classList.remove("live");
             document.getElementById("status-text").textContent = "LANDED";
+            document.getElementById("pause-btn").disabled = true;
           }
         }
       }
 
       function flashMaxQ() {
         const wrap = document.getElementById("q-val-wrap");
+        sim.maxQFlashUntil = performance.now() + 1800;
+        wrap.classList.add("max-q-flash");
+        window.setTimeout(() => wrap.classList.remove("max-q-flash"), 2200);
         const tag = document.createElement("span");
         tag.className = "max-q-tag";
         tag.textContent = "MAX-Q";
         wrap.appendChild(tag);
-        setTimeout(() => tag.remove(), 3000);
+        window.setTimeout(() => tag.remove(), 3000);
       }
 
       // ============================================================
@@ -1140,6 +1240,12 @@
           text: get("--canvas-text"),
           textDim: get("--canvas-text-dim"),
           grid: get("--canvas-grid"),
+          vehicle: get("--canvas-rocket-body"),
+          vehicleDim: get("--canvas-rocket-shade"),
+          vehicleShadow: get("--canvas-rocket-engine"),
+          amber: get("--amber"),
+          red: get("--red"),
+          cyan: get("--cyan"),
         };
       }
       window.addEventListener("themechange", () => {
@@ -1162,6 +1268,9 @@
         // background gradient — atmosphere fade based on altitude shown
         const viewMaxAlt = Math.max(p.spaceAlt * 1.2, sim.h * 1.3, 5000);
         const ground_y = h - 30;
+        const paneX = 12, paneY = 12, paneW = 200, paneH = 80;
+        const rocketX = w * 0.4;
+        const engineBurning = sim.fuel > 0 && sim.running && !sim.paused;
 
         // sky gradient based on planet
         const grad = ctx.createLinearGradient(0, 0, 0, ground_y);
@@ -1181,6 +1290,11 @@
         // ground
         ctx.fillStyle = p.surfaceColor;
         ctx.fillRect(0, ground_y, w, h - ground_y);
+        // stars in sky — alpha keyed to remaining atmospheric column above rocket
+        drawStars(ctx, w, ground_y, p);
+        // procedural horizon silhouette per planet
+        drawHorizon(ctx, w, ground_y, p, currentPlanet);
+        drawPlanetGroundDetails(ctx, w, ground_y, h, p, currentPlanet, rocketX, engineBurning);
         ctx.strokeStyle = p.accent;
         ctx.globalAlpha = 0.4;
         ctx.beginPath();
@@ -1220,15 +1334,17 @@
           ctx.textAlign = "left";
           ctx.fillText(
             "▲ TARGET (" + formatAlt(p.spaceAlt) + ")",
-            8,
+            paneX + paneW + 12,
             spaceY - 4,
           );
         }
 
         // rocket
-        const rocketX = w * 0.4;
         const rocketY = ground_y - (sim.h / viewMaxAlt) * (ground_y - 20);
-        drawRocket(rocketX, rocketY, sim.fuel > 0 && sim.running);
+        // dynamic-pressure streaks behind rocket — visualizes Q
+        drawQStreaks(ctx, rocketX, rocketY, p);
+        drawRocket(rocketX, rocketY, engineBurning, p);
+        drawMaxQFlash(ctx, rocketX, rocketY, p);
 
         // velocity arrow
         if (Math.abs(sim.v) > 5) {
@@ -1243,10 +1359,6 @@
         }
 
         // status pane in top left
-        const paneX = 12;
-        const paneY = 12;
-        const paneW = 200;
-        const paneH = 80;
         ctx.fillStyle = theme.panelBg;
         ctx.fillRect(paneX, paneY, paneW, paneH);
         ctx.strokeStyle = theme.panelBorder;
@@ -1266,49 +1378,449 @@
         ctx.fillText((p.H / 1000).toFixed(1) + " km", paneX + paneW - 12, paneY + 66);
       }
 
-      function drawRocket(x, y, burning) {
+      function colorWithAlpha(color, alpha) {
+        if (!color) return `rgba(255, 255, 255, ${alpha})`;
+        if (!color.startsWith("#")) return color;
+        const hex = color.slice(1);
+        const full = hex.length === 3
+          ? hex.split("").map((c) => c + c).join("")
+          : hex;
+        const n = Number.parseInt(full, 16);
+        return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+      }
+
+      function drawRocket(x, y, burning, p) {
+        const t = performance.now() * 0.001;
+        const qIntensity = Math.min(1, sim.q / 12000);
+        const thrustRatio = Math.min(1, rocket.thrust / 1500000);
+        const rumble = burning ? Math.sin(t * 34) * qIntensity * 0.45 : 0;
+        const landingCue = burning && sim.v < -5 && sim.h < 1200;
+
         ctx.save();
-        ctx.translate(x, y);
-        // body
-        ctx.fillStyle = "#e8ecf3";
-        ctx.fillRect(-5, -20, 10, 26);
-        // nose cone
-        ctx.beginPath();
-        ctx.moveTo(-5, -20);
-        ctx.lineTo(0, -32);
-        ctx.lineTo(5, -20);
-        ctx.closePath();
-        ctx.fill();
-        // fins
-        ctx.fillStyle = "#9ca3af";
-        ctx.beginPath();
-        ctx.moveTo(-5, 6);
-        ctx.lineTo(-10, 10);
-        ctx.lineTo(-5, 0);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.moveTo(5, 6);
-        ctx.lineTo(10, 10);
-        ctx.lineTo(5, 0);
-        ctx.fill();
-        // window
-        ctx.fillStyle = "#06b6d4";
-        ctx.beginPath();
-        ctx.arc(0, -14, 2.5, 0, Math.PI * 2);
-        ctx.fill();
-        // flame
+        ctx.translate(x + rumble, y);
+
+        // Draw exhaust first so the vehicle stays crisp on top.
         if (burning) {
-          const fl = 12 + Math.random() * 8;
-          const grad = ctx.createLinearGradient(0, 6, 0, 6 + fl);
-          grad.addColorStop(0, "#fbbf24");
-          grad.addColorStop(0.5, "#f59e0b");
-          grad.addColorStop(1, "rgba(239,68,68,0.2)");
-          ctx.fillStyle = grad;
+          const pulse = 0.5 + 0.5 * Math.sin(t * 22);
+          const flameLen = 28 + thrustRatio * 18 + pulse * 7 + (landingCue ? 10 : 0);
+          const flameWide = 7 + qIntensity * 5 + (landingCue ? 4 : 0);
+          const plume = ctx.createLinearGradient(0, -1, 0, flameLen);
+          plume.addColorStop(0, theme.vehicle);
+          plume.addColorStop(0.22, theme.amber);
+          plume.addColorStop(0.68, theme.red);
+          plume.addColorStop(1, colorWithAlpha(theme.red, 0));
+          ctx.fillStyle = plume;
+          ctx.globalAlpha = 0.9;
           ctx.beginPath();
-          ctx.moveTo(-4, 6);
-          ctx.quadraticCurveTo(0, 6 + fl + 4, 4, 6);
+          ctx.moveTo(-5, -2);
+          ctx.quadraticCurveTo(-flameWide, flameLen * 0.42, 0, flameLen);
+          ctx.quadraticCurveTo(flameWide, flameLen * 0.42, 5, -2);
           ctx.closePath();
           ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+
+        if (qIntensity > 0.04) {
+          drawPressureEnvelope(qIntensity, p);
+        }
+
+        // Fins and engine bell.
+        ctx.fillStyle = theme.vehicleDim;
+        ctx.beginPath();
+        ctx.moveTo(-9, -11);
+        ctx.lineTo(-19, -1);
+        ctx.lineTo(-9, -3);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(9, -11);
+        ctx.lineTo(19, -1);
+        ctx.lineTo(9, -3);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = theme.vehicleShadow;
+        ctx.beginPath();
+        ctx.moveTo(-6, -6);
+        ctx.lineTo(6, -6);
+        ctx.lineTo(9, 1);
+        ctx.lineTo(-9, 1);
+        ctx.closePath();
+        ctx.fill();
+
+        // Capsule/booster silhouette.
+        ctx.fillStyle = theme.vehicle;
+        ctx.strokeStyle = theme.panelBorder;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, -72);
+        ctx.bezierCurveTo(10, -64, 12, -55, 10, -45);
+        ctx.lineTo(9, -12);
+        ctx.quadraticCurveTo(6, -5, 0, -4);
+        ctx.quadraticCurveTo(-6, -5, -9, -12);
+        ctx.lineTo(-10, -45);
+        ctx.bezierCurveTo(-12, -55, -10, -64, 0, -72);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Shaded side gives the rocket a little dimensionality without images.
+        ctx.fillStyle = theme.vehicleShadow;
+        ctx.globalAlpha = 0.26;
+        ctx.beginPath();
+        ctx.moveTo(3, -67);
+        ctx.bezierCurveTo(10, -59, 11, -52, 9, -44);
+        ctx.lineTo(8, -13);
+        ctx.quadraticCurveTo(5, -7, 1, -5);
+        ctx.lineTo(1, -69);
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 1;
+
+        // Accent band and capsule windows.
+        ctx.fillStyle = p.accent;
+        ctx.fillRect(-8, -36, 16, 4);
+        ctx.fillStyle = theme.grid;
+        ctx.fillRect(-7, -31, 14, 1);
+
+        ctx.fillStyle = p.accent;
+        ctx.strokeStyle = theme.panelBorder;
+        ctx.lineWidth = 1;
+        for (const wx of [-3.5, 3.5]) {
+          ctx.beginPath();
+          ctx.arc(wx, -53, 2.6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        }
+
+        ctx.restore();
+      }
+
+      function drawPressureEnvelope(qIntensity, p) {
+        // Open arcs read more like airflow/load than a closed "shield" circle.
+        ctx.save();
+        ctx.strokeStyle = p.accent;
+        ctx.globalAlpha = 0.18 + qIntensity * 0.2;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(-8, -67);
+        ctx.bezierCurveTo(-33, -56, -36, -22, -14, -4);
+        ctx.moveTo(8, -67);
+        ctx.bezierCurveTo(33, -56, 36, -22, 14, -4);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 0.16 + qIntensity * 0.14;
+        ctx.beginPath();
+        ctx.arc(0, -64, 9 + qIntensity * 5, Math.PI * 1.08, Math.PI * 1.92);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function drawMaxQFlash(ctx, rocketX, rocketY, p) {
+        const remaining = sim.maxQFlashUntil - performance.now();
+        if (remaining <= 0) return;
+        const phase = remaining / 1800;
+        const pulse = 1 - phase;
+        const radius = 42 + pulse * 34;
+        ctx.save();
+        ctx.strokeStyle = theme.amber;
+        ctx.fillStyle = theme.amber;
+        ctx.globalAlpha = 0.2 + phase * 0.45;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(rocketX, rocketY - 36, radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 0.86;
+        ctx.font = "bold 12px JetBrains Mono";
+        ctx.textAlign = "center";
+        ctx.fillText("MAX-Q", rocketX, Math.max(24, rocketY - radius - 10));
+        ctx.strokeStyle = p.accent;
+        ctx.globalAlpha = 0.32;
+        ctx.beginPath();
+        ctx.arc(rocketX, rocketY - 36, radius + 10, Math.PI * 1.12, Math.PI * 1.88);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Procedural starfield, fixed seed so stars don't dance between frames.
+      // Positions are normalized; multiplied by canvas size each draw.
+      const STARS = (() => {
+        let s = 1337;
+        const rand = () => {
+          s = (s * 9301 + 49297) % 233280;
+          return s / 233280;
+        };
+        return Array.from({ length: 90 }, () => ({
+          fx: rand(),
+          fy: rand() * 0.55,
+          size: 0.5 + rand() * 1.4,
+          brightness: 0.4 + rand() * 0.6,
+        }));
+      })();
+
+      function drawStars(ctx, w, gy, p) {
+        // Optical-depth proxy: ρ₀·H above the rocket falls as exp(-h/H).
+        // Stars become visible when remaining column drops below threshold.
+        // Airless bodies (ρ₀ ≈ 0) always show stars.
+        let alpha;
+        if (p.rho0 < 1e-3) {
+          alpha = 0.85;
+        } else {
+          const remaining = p.rho0 * p.H * Math.exp(-Math.max(0, sim.h) / Math.max(1, p.H));
+          alpha = Math.max(0, Math.min(1, 1 - remaining / 5000));
+        }
+        if (alpha < 0.03) return;
+        ctx.save();
+        ctx.fillStyle = "#ffffff";
+        for (const s of STARS) {
+          ctx.globalAlpha = alpha * s.brightness;
+          ctx.beginPath();
+          ctx.arc(s.fx * w, s.fy * gy, s.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      // Per-planet horizon silhouette. Procedural paths filled in shadowColor
+      // (a darker shade than the sky-gradient base) and stroked with a faint
+      // accent so the skyline reads against the gradient. No images.
+      function drawHorizon(ctx, w, gy, p, key) {
+        const ridgePoints = [];
+        const sample = (xToY) => {
+          for (let x = 0; x <= w; x += 4) {
+            ridgePoints.push([x, xToY(x, x / w)]);
+          }
+        };
+        if (key === "earth") {
+          // rolling hills + flat launch-pad notch under the rocket (x ≈ 0.4w)
+          const padX = w * 0.4;
+          sample((x, f) => {
+            const n = Math.sin(x * 0.014) * 16 + Math.sin(x * 0.045 + 1.3) * 8;
+            const base = gy - 22 - n;
+            return Math.abs(x - padX) < 30 ? gy - 30 : base;
+          });
+        } else if (key === "mars") {
+          // flat-topped mesas with sharp drops
+          const mesas = [
+            { x: 0.05, w: 0.10, h: 38 },
+            { x: 0.22, w: 0.07, h: 22 },
+            { x: 0.50, w: 0.18, h: 50 },
+            { x: 0.74, w: 0.09, h: 32 },
+            { x: 0.89, w: 0.07, h: 20 },
+          ];
+          sample((x, f) => {
+            for (const m of mesas) {
+              if (f >= m.x && f <= m.x + m.w) return gy - m.h;
+            }
+            return gy - 10;
+          });
+        } else if (key === "venus") {
+          // jagged volcanic peaks (sawtooth)
+          const peaks = 18;
+          ridgePoints.push([0, gy - 8]);
+          for (let i = 0; i <= peaks; i++) {
+            const baseX = (i / peaks) * w;
+            const peakH = 26 + ((i * 7919) % 28);
+            ridgePoints.push([baseX, gy - peakH]);
+            if (i < peaks) {
+              ridgePoints.push([baseX + (w / peaks) * 0.5, gy - 8]);
+            }
+          }
+        } else if (key === "moon") {
+          // crater rims as raised half-domes — sharp because no atmosphere
+          const craters = [
+            { c: 0.12, r: 0.07, h: 36 },
+            { c: 0.28, r: 0.04, h: 18 },
+            { c: 0.55, r: 0.10, h: 50 },
+            { c: 0.78, r: 0.055, h: 28 },
+            { c: 0.93, r: 0.045, h: 20 },
+          ];
+          sample((x, f) => {
+            let y = gy - 8;
+            for (const cr of craters) {
+              const dx = (f - cr.c) / cr.r;
+              if (Math.abs(dx) <= 1) {
+                y = Math.min(y, gy - 8 - cr.h * Math.sqrt(1 - dx * dx));
+              }
+            }
+            return y;
+          });
+        } else if (key === "titan") {
+          // soft dunes + flat methane-lake band
+          sample((x, f) => {
+            const dunes = Math.sin(x * 0.011) * 14 + Math.sin(x * 0.028 + 0.7) * 9;
+            if (f > 0.55 && f < 0.78) return gy - 12;
+            return gy - 22 - dunes;
+          });
+        }
+        ctx.save();
+        // filled silhouette in shadowColor — darker than sky/ground so it reads
+        ctx.fillStyle = p.shadowColor || p.surfaceColor;
+        ctx.beginPath();
+        ctx.moveTo(0, gy);
+        for (const [px, py] of ridgePoints) ctx.lineTo(px, py);
+        ctx.lineTo(w, gy);
+        ctx.closePath();
+        ctx.fill();
+        // accent ridge line so the silhouette top is defined against any sky
+        ctx.strokeStyle = p.accent;
+        ctx.globalAlpha = 0.35;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        if (ridgePoints.length) {
+          ctx.moveTo(ridgePoints[0][0], ridgePoints[0][1]);
+          for (let i = 1; i < ridgePoints.length; i++) {
+            ctx.lineTo(ridgePoints[i][0], ridgePoints[i][1]);
+          }
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function drawPlanetGroundDetails(ctx, w, gy, h, p, key, padX, engineBurning) {
+        ctx.save();
+        ctx.lineWidth = 1;
+
+        if (key === "earth") {
+          ctx.strokeStyle = colorWithAlpha(p.accent, 0.12);
+          for (let i = 0; i < 5; i++) {
+            const y = gy + 9 + i * 5;
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            for (let x = 0; x <= w; x += 24) {
+              ctx.lineTo(x, y + Math.sin(x * 0.025 + i) * 2);
+            }
+            ctx.stroke();
+          }
+        } else if (key === "mars") {
+          ctx.strokeStyle = colorWithAlpha(p.accent, 0.18);
+          for (let i = 0; i < 4; i++) {
+            const y = gy + 8 + i * 6;
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(w, y + Math.sin(i * 1.7) * 2);
+            ctx.stroke();
+          }
+          ctx.fillStyle = colorWithAlpha(p.shadowColor, 0.8);
+          for (let i = 0; i < 18; i++) {
+            const x = ((i * 73) % 100) / 100 * w;
+            const r = 2 + ((i * 11) % 7);
+            ctx.beginPath();
+            ctx.ellipse(x, gy + 12 + ((i * 17) % 13), r, r * 0.45, 0, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        } else if (key === "venus") {
+          ctx.strokeStyle = colorWithAlpha(p.accent, 0.24);
+          for (let i = 0; i < 10; i++) {
+            const x = ((i * 89) % 100) / 100 * w;
+            const y = gy + 7 + ((i * 19) % 17);
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + 18 + (i % 3) * 8, y + 4);
+            ctx.lineTo(x + 28 + (i % 2) * 10, y - 2);
+            ctx.stroke();
+          }
+        } else if (key === "moon") {
+          ctx.strokeStyle = colorWithAlpha(p.accent, 0.22);
+          for (let i = 0; i < 12; i++) {
+            const x = ((i * 61) % 100) / 100 * w;
+            const rx = 8 + ((i * 13) % 14);
+            const ry = 2 + ((i * 7) % 5);
+            ctx.beginPath();
+            ctx.ellipse(x, gy + 11 + ((i * 17) % 15), rx, ry, 0, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+        } else if (key === "titan") {
+          ctx.strokeStyle = colorWithAlpha(p.accent, 0.16);
+          for (let i = 0; i < 5; i++) {
+            const y = gy + 8 + i * 5;
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            for (let x = 0; x <= w; x += 28) {
+              ctx.lineTo(x, y + Math.sin(x * 0.018 + i * 0.8) * 3);
+            }
+            ctx.stroke();
+          }
+          ctx.fillStyle = colorWithAlpha(theme.cyan, 0.13);
+          ctx.fillRect(w * 0.56, gy + 8, w * 0.22, 5);
+        }
+
+        drawLaunchPad(ctx, padX, gy, p, engineBurning);
+        ctx.restore();
+      }
+
+      function drawLaunchPad(ctx, x, gy, p, engineBurning) {
+        const deckY = gy + 4;
+        const deckW = 116;
+        const trenchW = 34;
+        ctx.save();
+
+        ctx.fillStyle = theme.vehicleShadow;
+        ctx.fillRect(x - deckW / 2, deckY, deckW, 8);
+        ctx.strokeStyle = theme.panelBorder;
+        ctx.strokeRect(x - deckW / 2, deckY, deckW, 8);
+
+        ctx.fillStyle = colorWithAlpha(theme.vehicleShadow, 0.85);
+        ctx.fillRect(x - trenchW / 2, deckY + 8, trenchW, 22);
+        ctx.strokeStyle = colorWithAlpha(p.accent, 0.22);
+        ctx.beginPath();
+        ctx.moveTo(x - 48, deckY + 8);
+        ctx.lineTo(x - 58, gy + 30);
+        ctx.moveTo(x + 48, deckY + 8);
+        ctx.lineTo(x + 58, gy + 30);
+        ctx.stroke();
+
+        ctx.strokeStyle = colorWithAlpha(p.accent, 0.38);
+        ctx.beginPath();
+        ctx.ellipse(x, deckY + 4, 43, 5, 0, 0, Math.PI * 2);
+        ctx.stroke();
+
+        if (engineBurning && sim.h < 650) {
+          const plumeAlpha = Math.max(0, 1 - sim.h / 650);
+          ctx.fillStyle = colorWithAlpha(theme.amber, 0.18 * plumeAlpha);
+          ctx.beginPath();
+          ctx.moveTo(x - 10, deckY + 8);
+          ctx.quadraticCurveTo(x - 45, deckY + 22, x - 82, deckY + 18);
+          ctx.quadraticCurveTo(x - 44, deckY + 30, x - 12, deckY + 28);
+          ctx.closePath();
+          ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(x + 10, deckY + 8);
+          ctx.quadraticCurveTo(x + 45, deckY + 22, x + 82, deckY + 18);
+          ctx.quadraticCurveTo(x + 44, deckY + 30, x + 12, deckY + 28);
+          ctx.closePath();
+          ctx.fill();
+        }
+
+        ctx.restore();
+      }
+      // Dynamic-pressure streaks: when Q is large, draw faint short vertical
+      // lines streaming downward past the rocket to visualize relative airflow.
+      // Stateless — particle phase comes from performance.now().
+      function drawQStreaks(ctx, rocketX, rocketY, p) {
+        if (!sim.running || sim.paused || sim.q < 200) return;
+        const intensity = Math.min(1, sim.q / 8000);
+        const count = Math.floor(intensity * 22);
+        if (count <= 0) return;
+        const t = performance.now() * 0.001;
+        ctx.save();
+        ctx.strokeStyle = p.accent;
+        ctx.lineWidth = 1;
+        for (let i = 0; i < count; i++) {
+          const seed = i * 37.13;
+          const cycle = 90;
+          const phase = (t * 80 + seed * 11) % cycle;
+          const sx = rocketX + Math.sin(seed) * 32;
+          const sy = rocketY - 60 + phase;
+          const len = 5 + intensity * 10;
+          // fade in at top of cycle, fade out at bottom
+          const fade = Math.min(1, phase / 12) * Math.min(1, (cycle - phase) / 12);
+          ctx.globalAlpha = fade * 0.55 * intensity;
+          ctx.beginPath();
+          ctx.moveTo(sx, sy);
+          ctx.lineTo(sx, sy + len);
+          ctx.stroke();
         }
         ctx.restore();
       }
@@ -1393,7 +1905,7 @@
       function loop(now) {
         const dtReal = Math.min(MAX_FRAME_DT, (now - lastFrame) / 1000);
         lastFrame = now;
-        if (sim.running) {
+        if (sim.running && !sim.paused) {
           accumulator += dtReal * SPEED_MULTIPLIER;
           let safety = 0;
           while (accumulator >= SIM_DT && safety < 200) {

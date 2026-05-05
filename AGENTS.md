@@ -159,7 +159,7 @@ npm install && npm start
 - Check `http://localhost:3000/astro/solar.html`.
 - Check `http://localhost:3000/mech/friction.html`.
 - Check `http://localhost:3000/shared/lab.css`.
-- For V3/orbital changes, open `http://localhost:3000/shared/orbital.test.html` and `http://localhost:3000/shared/orbital.mission.test.html`; all 29 gating tests must pass (`16 / 16` and `13 / 13`).
+- For V3/orbital changes, open `http://localhost:3000/shared/orbital.test.html` and `http://localhost:3000/shared/orbital.mission.test.html`; all 32 gating tests must pass (`16 / 16` and `16 / 16`).
 - For UI changes, also click through in a browser:
   - The theme toggle (top-right) flips dark ↔ light, both DOM and canvas drawings follow, and the choice survives a page reload (localStorage).
   - The focus toggle on each sim collapses the side panel and the canvas takes the full row; clicking again restores.

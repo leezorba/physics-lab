@@ -24,6 +24,9 @@ The UI should answer three beginner questions without requiring orbital mechanic
 
 - **System view:** default view for heliocentric/translunar coasts and final return geometry. It is the clearest view for long interplanetary motion.
 - **SOI view:** brief automatic handoff around SOI/capture/departure events, plus manual inspection on demand. Do not leave high-speed cruise in SOI for long stretches; that made Mars/Venus encounters feel like sudden jumps into an unreadable close-up.
+- **Return departure handoff:** during `target_departure` / `moon_departure`, switch back to System before the SOI-exit seam while the event speed cap is still active. This keeps the actual return coast from starting with a camera snap.
+- **Return-coast pull-away:** after SOI exit, keep the first few days of heliocentric return under the event speed cap, then ramp back to cruise more slowly than the normal speed control. Lunar return is short enough to keep the whole return coast capped, which avoids unreadable jumps in manual System view.
+- **Auto-view transitions:** automatic System/SOI/Local cuts may use a short canvas snapshot fade. This is camera smoothing only; it must not change mission time, segment duration, or path geometry.
 - **Local view:** automatic for target parking orbit, target wait, descent, ascent, and surface dwell.
 - **Instantaneous handoffs:** SOI crossing and capture/departure can share the same mission timestamp. The UI may hold the handoff visually for readability, but should not invent mission duration or alter the MissionPlan.
 - **End-state labels:** at `DONE`, the side panel should show an end marker such as `EARTH ARRIVAL MARKER` or `LOOSE RETURN MARKER`, not the last coast segment. Playback speed should read as stopped.
@@ -71,7 +74,7 @@ When a view auto-switches, the status strip must agree with the view. For exampl
 
 For solar UI changes, verify:
 
-- all 29 orbital gating tests still pass (`16 / 16` and `13 / 13`);
+- all 32 orbital gating tests still pass (`16 / 16` and `16 / 16`);
 - Mars, Venus, and Moon orbit-return still animate at `1,000,000x` and `10,000,000x`;
 - playback uses a brief SOI handoff near arrival/departure and does not stay in SOI during long cruise;
 - live Mars orbit-return playback starts in System, briefly switches to SOI near arrival, then settles into Local after capture;

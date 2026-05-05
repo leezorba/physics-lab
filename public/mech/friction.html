@@ -1156,7 +1156,7 @@
         context.stroke();
 
         const angle = Math.atan2(dy, dx);
-        const head = 16;
+        const head = clamp(len * 0.32, 8, 16);
         context.beginPath();
         context.moveTo(x2, y2);
         context.lineTo(
@@ -1434,12 +1434,15 @@
         const length = Math.abs(span);
         const lead = Math.min(18, length * 0.2);
         const coilLength = Math.max(0, length - lead * 2);
-        const coils = Math.max(3, Math.min(10, Math.round(coilLength / 18)));
-        const amplitude = clamp(length / 8, 5, 14);
+        const coils = 8;
+        const samples = coils * 12;
+        const amplitude = clamp(coilLength / 26, 4, 10);
 
         context.save();
         context.strokeStyle = "#63d6ff";
         context.lineWidth = 3;
+        context.lineCap = "round";
+        context.lineJoin = "round";
         context.beginPath();
         context.moveTo(x1, y);
 
@@ -1450,14 +1453,16 @@
           return;
         }
 
-        context.lineTo(x1 + direction * lead, y);
-        for (let i = 1; i < coils * 2; i++) {
-          const x =
-            x1 + direction * lead + (direction * coilLength * i) / (coils * 2);
-          const offset = i % 2 === 0 ? -amplitude : amplitude;
+        const coilStart = x1 + direction * lead;
+        const coilEnd = x2 - direction * lead;
+        context.lineTo(coilStart, y);
+        for (let i = 1; i < samples; i++) {
+          const t = i / samples;
+          const x = coilStart + direction * coilLength * t;
+          const offset = Math.sin(t * coils * Math.PI * 2) * amplitude;
           context.lineTo(x, y + offset);
         }
-        context.lineTo(x2 - direction * lead, y);
+        context.lineTo(coilEnd, y);
         context.lineTo(x2, y);
         context.stroke();
         context.restore();
@@ -1512,7 +1517,7 @@
         arrow(
           ctx,
           blockX + blockW * 0.5,
-          blockY - 8,
+          blockY,
           blockX + blockW * 0.5,
           blockY - 64,
           "#63d6ff",
@@ -1523,13 +1528,14 @@
         const springLen =
           clamp(Math.abs(springForce) / Math.max(1, staticMax), 0.12, 1.2) *
           78;
-        const springStartX = springDir > 0 ? blockX + blockW : blockX;
+        const springStartX = springDir > 0 ? blockX + blockW - 8 : blockX + 8;
+        const springArrowY = blockY + blockH * 0.26;
         arrow(
           ctx,
           springStartX,
-          blockY + 20,
+          springArrowY,
           springStartX + springDir * springLen,
-          blockY + 20,
+          springArrowY,
           "#68e391",
           "F_s",
         );
@@ -1542,13 +1548,14 @@
             0.12,
             1.2,
           ) * 70;
-        const frictionStartX = frictionDir < 0 ? blockX : blockX + blockW;
+        const frictionStartX = frictionDir < 0 ? blockX + 8 : blockX + blockW - 8;
+        const frictionY = groundY - 8;
         arrow(
           ctx,
           frictionStartX,
-          blockY + 32,
+          frictionY,
           frictionStartX + frictionDir * frictionLen,
-          blockY + 32,
+          frictionY,
           "#ff6d6d",
           "F_f",
         );

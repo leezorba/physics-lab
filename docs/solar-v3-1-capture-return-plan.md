@@ -1,5 +1,7 @@
 # Solar V3.1 Capture/Return Continuity Plan
 
+Status: implemented in `public/shared/orbital.js`, `public/shared/orbital.mission.test.html`, and `public/astro/solar.html`. The original diagnosis remains below for context.
+
 This follow-up exists because manual testing found a real planner/UI mismatch:
 Mars/Venus orbit-return and touch-return visually jump from SOI arrival into
 parking orbit, then later jump from target departure into the return coast.
@@ -90,7 +92,7 @@ to render them as normal motion:
 
 ## Test Requirements
 
-All 29 orbital gating tests must still pass, or be intentionally updated with
+All 32 orbital gating tests must still pass, or be intentionally updated with
 new coverage for the new segment contract.
 
 Add mission-planner tests for:
@@ -167,12 +169,12 @@ Implementation direction:
    - System for long heliocentric/translunar coasts and final return geometry.
    - SOI for target arrival/departure traversal.
    - Local for parking orbit, wait, descent, ascent, and surface dwell.
-6. Update tests. All 29 gating tests across both orbital pages must pass, with
+6. Update tests. All 32 gating tests across both orbital pages must pass, with
    new tests added or existing tests intentionally updated for the new segment
    contract.
 
 Verification:
-- Run the two orbital browser test pages and confirm 16/16 + 13/13, or updated
+- Run the two orbital browser test pages and confirm 16/16 + 16/16, or updated
   expected totals if new tests are added.
 - Headless browser check /astro/solar.html for Mars/Venus/Moon orbit-return and
   touch-return at 500,000x, 1,000,000x, and 10,000,000x.

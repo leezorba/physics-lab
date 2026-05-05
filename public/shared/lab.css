@@ -34,6 +34,9 @@
   --canvas-ground-line: rgba(244, 180, 63, 0.55);
   --canvas-ground-tint: rgba(99, 214, 255, 0.08);
   --canvas-rule: rgba(153, 178, 206, 0.18);
+  --canvas-rocket-body: #e8ecf3;
+  --canvas-rocket-shade: #9aa3b8;
+  --canvas-rocket-engine: #1f2940;
   --solar-sun: #ffd47a;
   --solar-earth: #63d6ff;
   --solar-mars: #ff866a;
@@ -86,6 +89,9 @@
   --canvas-ground-line: rgba(180, 110, 30, 0.45);
   --canvas-ground-tint: rgba(30, 58, 138, 0.05);
   --canvas-rule: rgba(101, 112, 133, 0.22);
+  --canvas-rocket-body: #f8fafc;
+  --canvas-rocket-shade: #cbd5e1;
+  --canvas-rocket-engine: #475467;
   --solar-sun: #b45309;
   --solar-earth: #1e3a8a;
   --solar-mars: #b42318;
@@ -294,11 +300,26 @@ h1 .accent {
   padding-bottom: 12px;
 }
 
+.home-page .shelf-header {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
 .shelf-board,
 .future-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 18px;
+}
+
+.home-page .shelf-board {
+  padding-bottom: 16px;
+  border-bottom: 2px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  box-shadow: 0 4px 0 -2px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.home-page .shelf:not(.muted-shelf) .shelf-board {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .sim-card,
@@ -638,6 +659,11 @@ textarea {
   color: var(--accent);
 }
 
+.telem-value.max-q-flash {
+  color: var(--amber-2);
+  text-shadow: 0 0 14px color-mix(in srgb, var(--amber-2) 55%, transparent);
+}
+
 .led {
   display: inline-block;
   width: 8px;
@@ -728,23 +754,27 @@ canvas {
 .max-q-tag {
   display: inline-block;
   margin-left: 6px;
+  border: 1px solid color-mix(in srgb, var(--amber-2) 52%, transparent);
   border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
+  background: var(--amber-2);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--amber-2) 14%, transparent);
+  color: var(--bg);
   font-size: 0.65rem;
   font-weight: 800;
   letter-spacing: 0.08em;
-  padding: 0.12rem 0.45rem;
-  animation: blink 0.6s 4;
+  padding: 0.16rem 0.5rem;
+  animation: maxq-ping 0.7s 4;
 }
 
-@keyframes blink {
+@keyframes maxq-ping {
   0%,
   100% {
     opacity: 1;
+    transform: translateY(0);
   }
   50% {
-    opacity: 0.32;
+    opacity: 0.72;
+    transform: translateY(-1px);
   }
 }
 
@@ -1082,5 +1112,9 @@ body.sim-focus .main-grid {
 
   .shelf-header {
     display: block;
+  }
+
+  .home-page .shelf:not(.muted-shelf) .shelf-board {
+    grid-template-columns: 1fr;
   }
 }

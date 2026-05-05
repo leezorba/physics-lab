@@ -584,6 +584,7 @@ function propagateUntilRadiusCrossing(startState, mu, targetRadius) {
   }
 
   const profile = closedOrbitDt(elements.periapsis, elements.apoapsis, mu);
+  const dt = Math.min(profile.dt, 1800);
   const maxDuration = elements.period * 1.1;
   const points = [startState.r];
   let previous = cloneState(startState);
@@ -595,7 +596,7 @@ function propagateUntilRadiusCrossing(startState, mu, targetRadius) {
   let elapsed = 0;
 
   while (elapsed < maxDuration - 1e-9) {
-    const step = Math.min(profile.dt, maxDuration - elapsed);
+    const step = Math.min(dt, maxDuration - elapsed);
     const current = propagate(previous, mu, step);
     elapsed += step;
     const currentOffset = vectorMagnitude(current.r) - targetRadius;
@@ -617,7 +618,7 @@ function propagateUntilRadiusCrossing(startState, mu, targetRadius) {
         endState: crossingState,
         points,
         elements,
-        dt: profile.dt
+        dt
       };
     }
 
@@ -635,7 +636,7 @@ function propagateUntilRadiusCrossing(startState, mu, targetRadius) {
       endState: closest,
       points,
       elements,
-      dt: profile.dt,
+      dt,
       radiusToleranceUsed: true
     };
   }
@@ -647,7 +648,158 @@ function propagateUntilRadiusCrossing(startState, mu, targetRadius) {
     duration: maxDuration,
     endState: previous,
     points,
-    dt: profile.dt
+    dt
+  };
+}
+
+function movingBodyState(orbitRadius, centralMu, absoluteTime, phase0) {
+  return circularOrbitState(orbitRadius, centralMu, absoluteTime, phase0);
+}
+
+function propagateUntilMovingSoiEntry(startState, centralMu, duration, targetBody, targetPhase0, absoluteStartTime) {
+  assertState(startState);
+  assertPositiveNumber("centralMu", centralMu);
+  assertPositiveNumber("duration", duration);
+  assertPositiveNumber("targetBody.orbitRadius", targetBody.orbitRadius);
+  assertPositiveNumber("targetBody.soi", targetBody.soi);
+  assertFiniteNumber("targetPhase0", targetPhase0);
+  assertFiniteNumber("absoluteStartTime", absoluteStartTime);
+
+  const steps = 20000;
+  const dt = duration / steps;
+  const points = [startState.r];
+  let previous = cloneState(startState);
+  let previousTime = 0;
+  let previousBody = movingBodyState(targetBody.orbitRadius, centralMu, absoluteStartTime, targetPhase0);
+  let previousDistance = vectorMagnitude(subtractVector(previous.r, previousBody.r));
+  let closest = {
+    state: cloneState(previous),
+    time: 0,
+    distance: previousDistance
+  };
+
+  for (let i = 0; i < steps; i++) {
+    const current = propagate(previous, centralMu, dt);
+    const currentTime = previousTime + dt;
+    const currentBody = movingBodyState(targetBody.orbitRadius, centralMu, absoluteStartTime + currentTime, targetPhase0);
+    const currentDistance = vectorMagnitude(subtractVector(current.r, currentBody.r));
+
+    if (currentDistance < closest.distance) {
+      closest = {
+        state: cloneState(current),
+        time: currentTime,
+        distance: currentDistance
+      };
+    }
+
+    if (previousDistance > targetBody.soi && currentDistance <= targetBody.soi) {
+      const fraction = (previousDistance - targetBody.soi) / (previousDistance - currentDistance);
+      const crossingState = interpolateState(previous, current, fraction);
+      const crossingTime = previousTime + dt * fraction;
+      points.push(crossingState.r);
+      return {
+        crossed: true,
+        duration: crossingTime,
+        endState: crossingState,
+        points,
+        dt,
+        bodyState: movingBodyState(targetBody.orbitRadius, centralMu, absoluteStartTime + crossingTime, targetPhase0)
+      };
+    }
+
+    points.push(current.r);
+    previous = current;
+    previousTime = currentTime;
+    previousDistance = currentDistance;
+  }
+
+  return {
+    crossed: false,
+    reason: "no target SOI crossing found along outbound coast",
+    duration: closest.time,
+    endState: closest.state,
+    points,
+    dt,
+    closestDistance: closest.distance,
+    bodyState: movingBodyState(targetBody.orbitRadius, centralMu, absoluteStartTime + closest.time, targetPhase0)
+  };
+}
+
+function hyperbolicHalfTraversal(periapsis, vInfinity, mu, soi, branch, velocityDirection, maxPoints = 900) {
+  assertPositiveNumber("periapsis", periapsis);
+  assertPositiveNumber("vInfinity", vInfinity);
+  assertPositiveNumber("mu", mu);
+  assertPositiveNumber("soi", soi);
+  assertVector2("velocityDirection", velocityDirection);
+  if (soi <= periapsis) {
+    throw new RangeError("soi must be greater than periapsis");
+  }
+  if (branch !== "arrival" && branch !== "departure") {
+    throw new RangeError("branch must be 'arrival' or 'departure'");
+  }
+
+  const eccentricity = 1 + periapsis * vInfinity * vInfinity / mu;
+  const p = periapsis * (1 + eccentricity);
+  const h = Math.sqrt(mu * p);
+  const cosNu = (p / soi - 1) / eccentricity;
+  const clampedCosNu = Math.max(-1, Math.min(1, cosNu));
+  const nu0 = Math.acos(clampedCosNu);
+
+  const stateAtTrueAnomaly = (nu) => {
+    const r = p / (1 + eccentricity * Math.cos(nu));
+    return {
+      r: [r * Math.cos(nu), r * Math.sin(nu)],
+      v: [
+        -mu / h * Math.sin(nu),
+        mu / h * (eccentricity + Math.cos(nu))
+      ]
+    };
+  };
+
+  const hyperbolicAnomaly = (nu) => {
+    const factor = Math.sqrt((eccentricity - 1) / (eccentricity + 1));
+    return 2 * Math.atanh(factor * Math.tan(nu / 2));
+  };
+
+  const aAbs = mu / (vInfinity * vInfinity);
+  const F = hyperbolicAnomaly(nu0);
+  const mean = eccentricity * Math.sinh(F) - F;
+  const duration = Math.sqrt(aAbs * aAbs * aAbs / mu) * mean;
+  const baseStart = branch === "arrival" ? stateAtTrueAnomaly(-nu0) : stateAtTrueAnomaly(0);
+  const baseReference = branch === "arrival" ? baseStart.v : stateAtTrueAnomaly(nu0).v;
+  const rotation = vectorAngle(velocityDirection) - vectorAngle(baseReference);
+  const solveAnomaly = (targetMean) => {
+    let estimate = Math.asinh(targetMean / eccentricity);
+    for (let i = 0; i < 12; i++) {
+      const value = eccentricity * Math.sinh(estimate) - estimate - targetMean;
+      const slope = eccentricity * Math.cosh(estimate) - 1;
+      estimate -= value / slope;
+    }
+    return estimate;
+  };
+  const trueAnomalyFromHyperbolic = (anomaly) => {
+    const factor = Math.sqrt((eccentricity + 1) / (eccentricity - 1));
+    return 2 * Math.atan(factor * Math.tanh(anomaly / 2));
+  };
+  const count = Math.max(2, maxPoints);
+  const states = [];
+  for (let i = 0; i < count; i++) {
+    const fraction = i / (count - 1);
+    const targetMean = branch === "arrival"
+      ? -mean * (1 - fraction)
+      : mean * fraction;
+    states.push(rotateState(stateAtTrueAnomaly(trueAnomalyFromHyperbolic(solveAnomaly(targetMean))), rotation));
+  }
+
+  return {
+    startState: states[0],
+    endState: states[states.length - 1],
+    duration,
+    points: states.map((state) => state.r),
+    integrator: "analytic",
+    periapsis,
+    vInfinity,
+    eccentricity
   };
 }
 
@@ -1078,34 +1230,82 @@ function planInterplanetaryMission(originKey, targetKey, missionType, options) {
     };
   }
 
-  const targetParkingStart = lowOrbitState(targetParkingRadius, target.mu, 0);
-  const captureStart = transformFrameWithOrigin(outboundCoast.endState, targetAtArrival.r, targetAtArrival.v, "toFrame");
-  const outboundEnd = outboundCoast.endState;
-  segments.push(withIntegrationDt(makeSegment(
+  const legacyCaptureStart = transformFrameWithOrigin(outboundCoast.endState, targetAtArrival.r, targetAtArrival.v, "toFrame");
+  const outboundEntry = propagateUntilMovingSoiEntry(
+    outboundStart,
+    centralMu,
+    outbound.transferTime,
+    target,
+    targetPhase0,
+    t0
+  );
+  const arrivalStart = transformFrameWithOrigin(
+    outboundEntry.endState,
+    outboundEntry.bodyState.r,
+    outboundEntry.bodyState.v,
+    "toFrame"
+  );
+  const arrivalTraversal = hyperbolicHalfTraversal(
+    targetParkingRadius,
+    vectorMagnitude(legacyCaptureStart.v),
+    target.mu,
+    target.soi,
+    "arrival",
+    arrivalStart.v
+  );
+  const outboundEnd = transformFrameWithOrigin(
+    arrivalTraversal.startState,
+    outboundEntry.bodyState.r,
+    outboundEntry.bodyState.v,
+    "fromFrame"
+  );
+  const outboundPoints = outboundEntry.points.slice();
+  outboundPoints[outboundPoints.length - 1] = outboundEnd.r;
+  const targetParkingStart = makeState(
+    arrivalTraversal.endState.r,
+    circularVelocityAt(arrivalTraversal.endState.r, target.mu)
+  );
+  segments.push(makeSegment(
     "heliocentric_outbound",
     "heliocentric",
     centralMu,
     outboundStart,
     outboundEnd,
-    outbound.transferTime,
+    outboundEntry.duration,
     0,
-    outboundCoast.points
-  ), outboundCoast));
+    outboundPoints
+  ));
   pushEvent(events, segmentEndTime(segments), "target SOI crossing");
 
-  const captureDv = escapeBurn(targetParkingRadius, vectorMagnitude(captureStart.v), target.mu);
+  const arrivalSegment = withIntegrationDt(makeSegment(
+    "target_arrival",
+    "target-centric",
+    target.mu,
+    arrivalStart,
+    arrivalTraversal.endState,
+    arrivalTraversal.duration,
+    0,
+    arrivalTraversal.points
+  ), arrivalTraversal);
+  arrivalSegment.periapsis = targetParkingRadius;
+  arrivalSegment.vInfinity = vectorMagnitude(legacyCaptureStart.v);
+  arrivalSegment.integrator = arrivalTraversal.integrator;
+  segments.push(arrivalSegment);
+
+  const captureDv = escapeBurn(targetParkingRadius, vectorMagnitude(legacyCaptureStart.v), target.mu);
   segments.push(makeSegment(
     "capture",
     "target-centric",
     target.mu,
-    captureStart,
+    arrivalTraversal.endState,
     targetParkingStart,
     0,
     captureDv,
-    sampleLine(captureStart.r, targetParkingStart.r, 2)
+    sampleLine(arrivalTraversal.endState.r, targetParkingStart.r, 2)
   ));
   pushEvent(events, segmentEndTime(segments), "capture burn");
 
+  const parkingStartPhase = vectorAngle(targetParkingStart.r);
   segments.push(makeSegment(
     "target_orbit",
     "target-centric",
@@ -1114,7 +1314,7 @@ function planInterplanetaryMission(originKey, targetKey, missionType, options) {
     targetParkingStart,
     0,
     0,
-    sampleCircularArc(targetParkingRadius, target.mu, 0)
+    sampleCircularArc(targetParkingRadius, target.mu, 0, parkingStartPhase)
   ));
 
   let waitStartState = targetParkingStart;
@@ -1165,7 +1365,8 @@ function planInterplanetaryMission(originKey, targetKey, missionType, options) {
     centralMu,
     waitArrivalAbs
   );
-  const waitEndOrbit = circularOrbitState(targetParkingRadius, target.mu, returnWaitDuration, 0);
+  const waitStartPhase = vectorAngle(waitStartState.r);
+  const waitEndOrbit = circularOrbitState(targetParkingRadius, target.mu, returnWaitDuration, waitStartPhase);
   segments.push(makeSegment(
     "target_wait",
     "target-centric",
@@ -1174,7 +1375,7 @@ function planInterplanetaryMission(originKey, targetKey, missionType, options) {
     waitEndOrbit,
     returnWaitDuration,
     0,
-    sampleCircularArc(targetParkingRadius, target.mu, returnWaitDuration)
+    sampleCircularArc(targetParkingRadius, target.mu, returnWaitDuration, waitStartPhase)
   ));
   pushEvent(events, segmentEndTime(segments), "return window opens");
 
@@ -1186,7 +1387,16 @@ function planInterplanetaryMission(originKey, targetKey, missionType, options) {
     returnLaunchAngle
   );
   const returnVInfinityTarget = subtractVector(returnDepartureState.v, targetAtReturnLaunch.v);
-  const departureEnd = makeState(waitEndOrbit.r, returnVInfinityTarget);
+  const departureTraversal = hyperbolicHalfTraversal(
+    targetParkingRadius,
+    vectorMagnitude(returnVInfinityTarget),
+    target.mu,
+    target.soi,
+    "departure",
+    returnVInfinityTarget
+  );
+  const departureExit = makeState(departureTraversal.endState.r, returnVInfinityTarget);
+  const departureEnd = departureTraversal.startState;
   const departureDv = escapeBurn(targetParkingRadius, vectorMagnitude(returnVInfinityTarget), target.mu);
   segments.push(makeSegment(
     "departure",
@@ -1200,16 +1410,34 @@ function planInterplanetaryMission(originKey, targetKey, missionType, options) {
   ));
   pushEvent(events, segmentEndTime(segments), "departure burn");
 
+  const departureSegment = withIntegrationDt(makeSegment(
+    "target_departure",
+    "target-centric",
+    target.mu,
+    departureTraversal.startState,
+    departureExit,
+    departureTraversal.duration,
+    0,
+    departureTraversal.points
+  ), departureTraversal);
+  departureSegment.periapsis = targetParkingRadius;
+  departureSegment.vInfinity = vectorMagnitude(returnVInfinityTarget);
+  departureSegment.integrator = departureTraversal.integrator;
+  segments.push(departureSegment);
+  pushEvent(events, segmentEndTime(segments), "target SOI exit");
+
+  const returnStartAbsTime = t0 + segmentEndTime(segments);
+  const targetAtReturnExit = circularOrbitState(target.orbitRadius, centralMu, returnStartAbsTime, targetPhase0);
   const returnStart = transformFrameWithOrigin(
-    departureEnd,
-    targetAtReturnLaunch.r,
-    targetAtReturnLaunch.v,
+    departureExit,
+    targetAtReturnExit.r,
+    targetAtReturnExit.v,
     "fromFrame"
   );
   const returnCrossing = propagateUntilRadiusCrossing(returnStart, centralMu, origin.orbitRadius);
   const returnDuration = returnCrossing.duration;
   const returnEnd = returnCrossing.endState;
-  const returnArrivalAbsTime = returnLaunchAbsTime + returnDuration;
+  const returnArrivalAbsTime = returnStartAbsTime + returnDuration;
   const earthAtArrival = bodyStateAroundSun(originKey, returnArrivalAbsTime, originPhase0);
   segments.push(withIntegrationDt(makeSegment(
     "heliocentric_return",
@@ -1383,33 +1611,81 @@ function planMoonMission(originKey, missionType, options) {
     };
   }
 
-  const moonParkingStart = lowOrbitState(moonParkingRadius, moon.mu, 0);
-  const captureStart = transformFrameWithOrigin(translunarCoast.endState, moonAtArrival.r, moonAtArrival.v, "toFrame");
-  const translunarEnd = translunarCoast.endState;
-  segments.push(withIntegrationDt(makeSegment(
+  const legacyCaptureStart = transformFrameWithOrigin(translunarCoast.endState, moonAtArrival.r, moonAtArrival.v, "toFrame");
+  const moonEntry = propagateUntilMovingSoiEntry(
+    earthDepartureEnd,
+    centralMu,
+    transfer.transferTime,
+    moon,
+    moonPhase0,
+    t0
+  );
+  const moonArrivalStart = transformFrameWithOrigin(
+    moonEntry.endState,
+    moonEntry.bodyState.r,
+    moonEntry.bodyState.v,
+    "toFrame"
+  );
+  const moonArrivalTraversal = hyperbolicHalfTraversal(
+    moonParkingRadius,
+    vectorMagnitude(legacyCaptureStart.v),
+    moon.mu,
+    moon.soi,
+    "arrival",
+    moonArrivalStart.v
+  );
+  const translunarEnd = transformFrameWithOrigin(
+    moonArrivalTraversal.startState,
+    moonEntry.bodyState.r,
+    moonEntry.bodyState.v,
+    "fromFrame"
+  );
+  const translunarPoints = moonEntry.points.slice();
+  translunarPoints[translunarPoints.length - 1] = translunarEnd.r;
+  const moonParkingStart = makeState(
+    moonArrivalTraversal.endState.r,
+    circularVelocityAt(moonArrivalTraversal.endState.r, moon.mu)
+  );
+  segments.push(makeSegment(
     "translunar_coast",
     "geocentric",
     centralMu,
     earthDepartureEnd,
     translunarEnd,
-    transfer.transferTime,
+    moonEntry.duration,
     0,
-    translunarCoast.points
-  ), translunarCoast));
+    translunarPoints
+  ));
   pushEvent(events, segmentEndTime(segments), "Moon SOI crossing");
+
+  const moonArrivalSegment = withIntegrationDt(makeSegment(
+    "moon_arrival",
+    "moon-centric",
+    moon.mu,
+    moonArrivalStart,
+    moonArrivalTraversal.endState,
+    moonArrivalTraversal.duration,
+    0,
+    moonArrivalTraversal.points
+  ), moonArrivalTraversal);
+  moonArrivalSegment.periapsis = moonParkingRadius;
+  moonArrivalSegment.vInfinity = vectorMagnitude(legacyCaptureStart.v);
+  moonArrivalSegment.integrator = moonArrivalTraversal.integrator;
+  segments.push(moonArrivalSegment);
 
   segments.push(makeSegment(
     "loi_capture",
     "moon-centric",
     moon.mu,
-    captureStart,
+    moonArrivalTraversal.endState,
     moonParkingStart,
     0,
-    escapeBurn(moonParkingRadius, vectorMagnitude(captureStart.v), moon.mu),
-    sampleLine(captureStart.r, moonParkingStart.r, 2)
+    escapeBurn(moonParkingRadius, vectorMagnitude(legacyCaptureStart.v), moon.mu),
+    sampleLine(moonArrivalTraversal.endState.r, moonParkingStart.r, 2)
   ));
   pushEvent(events, segmentEndTime(segments), "LOI capture burn");
 
+  const moonParkingStartPhase = vectorAngle(moonParkingStart.r);
   segments.push(makeSegment(
     "moon_orbit",
     "moon-centric",
@@ -1418,7 +1694,7 @@ function planMoonMission(originKey, missionType, options) {
     moonParkingStart,
     0,
     0,
-    sampleCircularArc(moonParkingRadius, moon.mu, 0)
+    sampleCircularArc(moonParkingRadius, moon.mu, 0, moonParkingStartPhase)
   ));
 
   let waitStartState = moonParkingStart;
@@ -1461,15 +1737,17 @@ function planMoonMission(originKey, missionType, options) {
   }
 
   const returnWaitDuration = 0;
+  const moonWaitStartPhase = vectorAngle(waitStartState.r);
+  const moonWaitEndOrbit = circularOrbitState(moonParkingRadius, moon.mu, returnWaitDuration, moonWaitStartPhase);
   segments.push(makeSegment(
     "moon_wait",
     "moon-centric",
     moon.mu,
     waitStartState,
-    waitStartState,
+    moonWaitEndOrbit,
     returnWaitDuration,
     0,
-    sampleLine(waitStartState.r, waitStartState.r, 2)
+    sampleCircularArc(moonParkingRadius, moon.mu, returnWaitDuration, moonWaitStartPhase)
   ));
   pushEvent(events, segmentEndTime(segments), "return window opens");
 
@@ -1479,21 +1757,49 @@ function planMoonMission(originKey, missionType, options) {
     hohmannTransferState(moon.orbitRadius, originParkingRadius, centralMu, "departure"),
     vectorAngle(moonAtReturnLaunch.r)
   );
-  const departureEnd = makeState(waitStartState.r, subtractVector(returnDepartureState.v, moonAtReturnLaunch.v));
-  const teiDeltaV = escapeBurn(moonParkingRadius, vectorMagnitude(departureEnd.v), moon.mu);
+  const returnVInfinityMoon = subtractVector(returnDepartureState.v, moonAtReturnLaunch.v);
+  const moonDepartureTraversal = hyperbolicHalfTraversal(
+    moonParkingRadius,
+    vectorMagnitude(returnVInfinityMoon),
+    moon.mu,
+    moon.soi,
+    "departure",
+    returnVInfinityMoon
+  );
+  const moonDepartureExit = makeState(moonDepartureTraversal.endState.r, returnVInfinityMoon);
+  const departureEnd = moonDepartureTraversal.startState;
+  const teiDeltaV = escapeBurn(moonParkingRadius, vectorMagnitude(returnVInfinityMoon), moon.mu);
   segments.push(makeSegment(
     "tei_departure",
     "moon-centric",
     moon.mu,
-    waitStartState,
+    moonWaitEndOrbit,
     departureEnd,
     0,
     teiDeltaV,
-    sampleLine(waitStartState.r, departureEnd.r, 2)
+    sampleLine(moonWaitEndOrbit.r, departureEnd.r, 2)
   ));
   pushEvent(events, segmentEndTime(segments), "TEI departure burn");
 
-  const returnStart = transformFrameWithOrigin(departureEnd, moonAtReturnLaunch.r, moonAtReturnLaunch.v, "fromFrame");
+  const moonDepartureSegment = withIntegrationDt(makeSegment(
+    "moon_departure",
+    "moon-centric",
+    moon.mu,
+    moonDepartureTraversal.startState,
+    moonDepartureExit,
+    moonDepartureTraversal.duration,
+    0,
+    moonDepartureTraversal.points
+  ), moonDepartureTraversal);
+  moonDepartureSegment.periapsis = moonParkingRadius;
+  moonDepartureSegment.vInfinity = vectorMagnitude(returnVInfinityMoon);
+  moonDepartureSegment.integrator = moonDepartureTraversal.integrator;
+  segments.push(moonDepartureSegment);
+  pushEvent(events, segmentEndTime(segments), "Moon SOI exit");
+
+  const returnStartAbsTime = t0 + segmentEndTime(segments);
+  const moonAtReturnExit = circularOrbitState(moon.orbitRadius, centralMu, returnStartAbsTime, moonPhase0);
+  const returnStart = transformFrameWithOrigin(moonDepartureExit, moonAtReturnExit.r, moonAtReturnExit.v, "fromFrame");
   const returnCrossing = propagateUntilRadiusCrossing(returnStart, centralMu, originParkingRadius);
   const returnEnd = returnCrossing.endState;
   segments.push(withIntegrationDt(makeSegment(
