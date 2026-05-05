@@ -48,6 +48,7 @@ Timeline chips need to communicate state, not just list events.
 - **Long path jumps:** if projected points create a large visual connector across the canvas, break the path. A straight connector can imply a burn or steering command that does not exist.
 - **Display scale:** planet disks are enlarged so users can see them. Do not keep a true-scale toggle if it only produces a blank-looking canvas; explain the enlargement ratio instead.
 - **Parking orbit:** render target parking/wait/orbit segments analytically as one clean circular orbit. Do not draw aliased stored polylines for these local phases.
+- **Do not fake missing planner segments:** if the MissionPlan has zero-duration capture/departure handoffs, the UI can label and pace them but should not invent decorative approach paths. The V3.1 follow-up plan for fixing this correctly lives in `docs/solar-v3-1-capture-return-plan.md`.
 
 ## Explanation Pattern
 

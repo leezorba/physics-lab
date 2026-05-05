@@ -19,8 +19,7 @@ Guidance for CC, Codex, Claude, or any other agent editing this project.
 
 - Keep `README.md` high-level: what the app is, routes, local testing, and where to find deeper docs.
 - Keep `ROADMAP.md` focused on shipped versions, durable decisions, and scoped next work. Do not turn it into a detailed bug diary.
-- Use focused docs under `docs/` for lessons learned or UX patterns that should transfer to later sims. Current example: `docs/solar-ui-lessons.md`.
-- Do not create one-off Markdown files for every UI patch. Fold durable lessons into the focused doc, and keep transient bug details in the commit/PR/chat context.
+- Each sim may have one durable `docs/<sim>-ui-lessons.md` file (e.g. `solar-ui-lessons.md`, `friction-ui-lessons.md`, `rocket-ui-lessons.md`) capturing UX decisions specific to that sim. Cross-sim conventions live here in `AGENTS.md`. Do not create per-fix Markdown files; fold durable lessons into the existing per-sim doc and keep transient bug details in the commit/PR/chat context.
 - If a shipped behavior changes the V3 contract, update `V3_SPEC.md` so future agents do not follow stale instructions.
 - Update `tree.md` last, after files are added/removed or structure changes.
 
@@ -65,6 +64,31 @@ Every page (homepage and sims) carries the same chrome. When adding a new page, 
 - **Body line-height** is 1.6. Use 1.6 for narrative text. Headings have their own tighter line-heights set per element — leave them alone.
 - **No casual/educational mode.** That toggle was removed; rocket.html now shows all telemetry, sliders, and equations unconditionally. Don't reintroduce `.edu-only` / `body.edu-mode` classes.
 
+## Lab-Wide UI Conventions
+
+These conventions apply to every sim. Per-sim variations live in the per-sim lessons docs under `docs/`.
+
+- **Sticky back link.** `.back-link` (defined in `lab.css`) is `position: sticky; top: 16px; z-index: 20`. Every sim page must render a `<a class="back-link" href="/">← Back to Lab</a>` near the top of the container so the chip stays in view as the user scrolls. Do not duplicate this in per-page CSS.
+- **Numbered footer headers.** Footer sections use `<h2><span class="num">XX</span> Title</h2>`. The number renders at heading-size in the same color as the title (matching friction and solar). If a sim wraps its footer in a real `<footer>` element (currently rocket only), the shared `footer h2 .num` rule kicks in and shrinks the number to small accent style — override it per-page with `color: inherit; font-family: inherit; font-size: inherit`.
+- **"How to Use This [Lab|Sandbox]" as section 01.** Every sim's footer opens with a card-grid intro section orienting first-time users — typically 4–6 `.glossary-item` cards covering overall flow, key controls, telemetry tiles, and any non-obvious UI elements. The deep physics narrative comes after.
+- **`.fill-columns` for narrative-heavy footer sections.** When a footer section has 3+ paragraphs or 4+ list items that would otherwise stay in a single 82ch column on full-screen and leave the right half empty, wrap them in `<div class="fill-columns">` (or add the class directly to a `<ul>`). Pair with per-page CSS:
+  ```css
+  .<page>-page .fill-columns {
+    columns: 320px 2;
+    column-gap: 32px;
+  }
+  .<page>-page .fill-columns p,
+  .<page>-page .fill-columns li,
+  .<page>-page .fill-columns .planet-card {
+    max-width: none;
+    break-inside: avoid;
+  }
+  ```
+  The per-column width still falls in the 70–75 character readability band, and the layout collapses to one column on narrow screens via the CSS columns shorthand — no media query needed. Do not remove the global `max-width: 82ch` cap on `footer p`/`footer li`; long single-column lines tire the reader. The 2-column layout is the right answer for "fill the box without sacrificing readability."
+- **Pause / Resume pattern.** When a sim has continuous physics (Friction's Stick-Slip, any future continuous sim), provide a `⏸` / `▶` icon button next to the reset button. Spacebar toggles pause from anywhere on the page (skip when focus is in `<input>` / `<textarea>`). On resume, reset the wall-clock anchor (`state.lastTime = performance.now()`) so the next frame's `dt` is one frame's worth, not the entire paused duration.
+- **Peak-value tile pattern.** When a meaningful telemetry value (velocity, dynamic pressure) is zeroed by a clamp/event, display its run peak in a separate persistent tile. See rocket's `MAX-Q (PEAK)` and friction's `Peak v`. The peak resets when the user resets the run, switches gravity (if the value is gravity-dependent), or starts a new mission.
+- **Visual barriers must be drawn.** If physics enforces a boundary (a wall, a floor, a ramp corner), render it. An invisible clamp that suddenly stops the simulation feels like a glitch.
+
 ## Physics Rules
 
 - Only the active tab updates each animation frame. Hidden tabs must not keep running physics in the background.
@@ -94,7 +118,7 @@ Every page (homepage and sims) carries the same chrome. When adding a new page, 
 
 ## Solar UI Practice
 
-`public/astro/solar.html` is the current reference for post-launch UX lessons. Read `docs/solar-ui-lessons.md` before making Solar UI changes or borrowing its patterns for Rocket/Friction improvements.
+Read `docs/solar-ui-lessons.md` before making Solar UI changes. Friction-specific lessons live in `docs/friction-ui-lessons.md`; rocket-specific lessons live in `docs/rocket-ui-lessons.md`. Cross-sim conventions live in this file under **Lab-Wide UI Conventions** above. If the work touches target-SOI capture/departure continuity, read `docs/solar-v3-1-capture-return-plan.md` too; that is planner work, not a UI-only patch.
 
 - Treat the Solar sim as a precomputed mission viewer, not a piloting game.
 - Use SOI as a short automatic handoff around SOI/capture/departure events, then settle back into System or Local. Long auto-SOI playback at high speed made missions harder to read.

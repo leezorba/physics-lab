@@ -382,6 +382,7 @@ Manual testing after V3 ship changed several UI behaviors without changing `orbi
 - Canvas supports `+`, `-`, `Fit` zoom buttons and drag-to-pan. `Fit` resets to the readable default for the active frame.
 - Parking-orbit and wait visuals render analytically as clean circular orbits.
 - Residual gaps, flyby fallback markers, and long path breaks are labeled/rendered so they do not imply hidden maneuvers.
+- Post-publish limitation: orbit-return and touch-return still use zero-duration capture/departure handoffs in `orbital.js`, so high-speed playback can appear to jump from target SOI arrival into parking orbit and from target departure into return coast. A correct fix requires a planner follow-up with finite target-SOI arrival/departure segments; see `docs/solar-v3-1-capture-return-plan.md`.
 
 See `docs/solar-ui-lessons.md` for the focused UX rationale and future-sim takeaways.
 

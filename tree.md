@@ -5,11 +5,14 @@ physics-lab/
 ├── .gitignore
 ├── AGENTS.md                         # Agent/contributor instructions (146 lines)
 ├── CLAUDE.md                         # Claude Code imports AGENTS.md
-├── README.md                         # Project overview and routes (55 lines)
-├── ROADMAP.md                        # Shipped versions / direction (174 lines)
-├── V3_SPEC.md                        # Solar System simulator spec (462 lines)
+├── README.md                         # Project overview and routes (56 lines)
+├── ROADMAP.md                        # Shipped versions / direction (176 lines)
+├── V3_SPEC.md                        # Solar System simulator spec (463 lines)
 ├── docs/
-│   └── solar-ui-lessons.md           # Focused Solar UI lessons (90 lines)
+│   ├── solar-ui-lessons.md           # Solar-specific UX lessons (91 lines)
+│   ├── friction-ui-lessons.md        # Friction-specific UX lessons (67 lines)
+│   ├── rocket-ui-lessons.md          # Rocket-specific UX lessons (83 lines)
+│   └── solar-v3-1-capture-return-plan.md # V3.1 capture/return continuity plan (242 lines)
 ├── package.json                      # npm config (16 lines)
 ├── package-lock.json
 ├── server.js                         # Static file server (7 lines)

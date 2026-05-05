@@ -37,6 +37,7 @@
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 18px;
+        align-items: stretch;
       }
 
       /* Top control-band needs explicit bottom space; otherwise its
@@ -61,8 +62,30 @@
         gap: 10px;
       }
 
+      .solar-page .setup-choice {
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        gap: 14px;
+      }
+
+      .solar-page .setup-choice .tabs {
+        grid-template-rows: repeat(3, minmax(50px, 1fr));
+        gap: 12px;
+      }
+
       .solar-page .sim-pane {
         overflow: hidden;
+      }
+
+      .solar-page .mission-grid.workspace {
+        align-items: stretch;
+      }
+
+      .solar-page .mission-side {
+        display: grid;
+        grid-template-rows: auto auto minmax(0, 1fr);
+        gap: 12px;
+        min-height: 100%;
       }
 
       .solar-page #solarCanvas {
@@ -310,6 +333,14 @@
         .solar-page .limitations-grid {
           grid-template-columns: 1fr;
         }
+
+        .solar-page .mission-grid.workspace {
+          align-items: start;
+        }
+
+        .solar-page .mission-side {
+          grid-template-rows: none;
+        }
       }
 
       @media (max-width: 520px) {
@@ -351,7 +382,7 @@
 
       <section class="control-band" aria-label="Mission setup">
         <div class="setup-grid">
-          <div>
+          <div class="setup-choice">
             <div class="band-header">
               <div>
                 <div class="band-title">Destination</div>
@@ -364,7 +395,7 @@
             </div>
           </div>
 
-          <div>
+          <div class="setup-choice">
             <div class="band-header">
               <div>
                 <div class="band-title">Mission type</div>

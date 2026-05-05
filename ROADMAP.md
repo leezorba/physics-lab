@@ -126,7 +126,7 @@ No further work unless feedback comes from the friend.
 - **Stage 3b mission planner:** `planMission(originBody, targetBody, missionType, options) → MissionPlan`, with six mission patterns across Mars, Venus, and Moon. Review fixes include propagated return arcs, strict-return residual gap markers, Venus orbit-return coverage, and the Earth-arrival speed marker convention.
 - **Stage 3c UI:** `public/astro/solar.html`, consuming the reviewed mission planner. The UI includes destination and mission selectors, Plan and launch, auto-throttled playback, System/SOI/Local view buttons, canvas zoom/pan controls, timeline, Back/Next event controls, Pause/Resume, Reset, Δv budget, display-scale note, theme/focus chrome, and a V1/V2-style footer.
 - **Homepage integration:** the Astrophysics shelf now links to the Solar System Mission Simulator.
-- **UX lessons doc:** `docs/solar-ui-lessons.md` captures the post-ship UI decisions so future Rocket/Friction polish can reuse the lessons without bloating this roadmap.
+- **UX lessons docs:** `docs/solar-ui-lessons.md` captures Solar's post-ship UI decisions. Friction and Rocket each have their own per-sim lessons docs (`docs/friction-ui-lessons.md`, `docs/rocket-ui-lessons.md`); cross-sim conventions live in `AGENTS.md`.
 
 ### Verification
 
@@ -150,6 +150,8 @@ No further V3 work unless post-publish feedback or the logged follow-up investig
 - Stage 3c replaced the true-scale toggle with a display-scale explanation. True scale was physically honest but looked like an empty/broken canvas for the intended educational UI.
 - Stage 3c keeps Reset as a compact rewind-to-start control while Pause/Resume handles temporary stopping. Back/Next event controls remain timeline navigation, not speed resets.
 - Stage 3c timeline chips mark `0 d` launch/TLI as the current start event at reset and as completed after playback begins.
+- Post-publish V3.1 candidate: orbit-return and touch-return currently jump through target capture/departure because those are zero-duration planner handoffs. Do not fake this in `solar.html`; use `docs/solar-v3-1-capture-return-plan.md` if we decide to add finite target-SOI arrival/departure segments.
+- Post-V3 polish pass aligned Friction and Rocket UX with the lab-wide conventions captured in `AGENTS.md` → Lab-Wide UI Conventions, with sim-specific decisions documented in `docs/friction-ui-lessons.md` and `docs/rocket-ui-lessons.md`.
 
 ---
 
@@ -168,7 +170,8 @@ No further V3 work unless post-publish feedback or the logged follow-up investig
 V2.5, V2.6, and V3 are shipped. The next move is publishing/gathering feedback, or handling a clearly scoped post-publish fix. If an agent needs to touch the repo outside that feedback, the safe scopes are:
 
 - Bug fixes flagged by the friend after publish.
-- Solar UI polish that follows `docs/solar-ui-lessons.md`.
+- Solar / Friction / Rocket UI polish that follows `docs/solar-ui-lessons.md`, `docs/friction-ui-lessons.md`, or `docs/rocket-ui-lessons.md` respectively, plus the lab-wide rules in `AGENTS.md`.
+- V3.1 Solar capture/return continuity work, but only after reading `docs/solar-v3-1-capture-return-plan.md` and approving the segment/test contract.
 - Small additions to existing sims (a new planet for rocket, a fourth tab for friction) — but only if they fit the existing patterns documented in AGENTS.md.
 
 Bigger work — a new shelf, a new sim, or major V3 follow-up — should still come back through this roadmap before any code is written.

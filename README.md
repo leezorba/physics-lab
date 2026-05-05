@@ -51,5 +51,8 @@ Railway can deploy this project directly:
 - `AGENTS.md` — contributor and agent operating rules.
 - `ROADMAP.md` — shipped versions, durable decisions, and next-step direction.
 - `V3_SPEC.md` — Solar System Mission Simulator physics and UI contract.
-- `docs/solar-ui-lessons.md` — focused lessons from Solar UI testing for future UX work.
+- `docs/solar-ui-lessons.md` — Solar-specific UX lessons.
+- `docs/friction-ui-lessons.md` — Friction-specific UX lessons.
+- `docs/rocket-ui-lessons.md` — Rocket-specific UX lessons.
+- `docs/solar-v3-1-capture-return-plan.md` — scoped follow-up plan/prompt for fixing target-SOI capture/departure jumps.
 - `tree.md` — current file structure snapshot.
