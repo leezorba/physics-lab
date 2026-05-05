@@ -69,6 +69,49 @@
       .rocket-page .button-row {
         grid-template-columns: minmax(140px, 1fr) auto;
       }
+
+      /* Match the friction/solar treatment: numbered footer headings
+         render the number at heading size in the same color as the
+         title, instead of the small accent style the shared
+         `footer h2 .num` rule applies under a real <footer> element. */
+      .rocket-page footer h2 .num {
+        margin-right: 10px;
+        color: inherit;
+        font-family: inherit;
+        font-size: inherit;
+      }
+
+      /* Two-column layout for the caveat list so it fills the section
+         box on full-screen instead of crowding into a single narrow
+         column. Falls back to one column on narrow screens. */
+      .rocket-page .caveat-list {
+        columns: 320px 2;
+        column-gap: 32px;
+      }
+      .rocket-page .caveat-list li {
+        max-width: none;
+        break-inside: avoid;
+      }
+
+      /* Same 2-column treatment for narrative footer sections (Dynamic
+         Pressure, Max-Q, Things to Try) and the planet-card stack in
+         "A Tour of Five Worlds". Per-column width still falls in the
+         comfortable reading band; falls back to 1 column on narrow
+         screens. */
+      .rocket-page .fill-columns {
+        columns: 320px 2;
+        column-gap: 32px;
+      }
+      .rocket-page .fill-columns p,
+      .rocket-page .fill-columns li,
+      .rocket-page .fill-columns .planet-card {
+        max-width: none;
+        break-inside: avoid;
+      }
+      .rocket-page .fill-columns p:last-child,
+      .rocket-page .fill-columns .planet-card:last-child {
+        margin-bottom: 0;
+      }
     </style>
     <script>
       (function () {
@@ -335,27 +378,218 @@
       <!-- FOOTER EXPLANATION -->
       <footer>
         <div class="footer-section">
-          <h2><span class="num">01</span>How to Read the Display</h2>
-          <p>
-            The big number that matters most is <strong>Q</strong> — dynamic
-            pressure. It's the pressure-like aerodynamic load per square meter
-            as the rocket punches through atmosphere. Multiply q by drag
-            coefficient and area to get the actual drag force. Watch for the red
-            <strong>MAX-Q</strong> tag: that's the moment your rocket is under
-            maximum aerodynamic stress. Real engineers throttle their engines
-            down at this exact moment to avoid ripping the vehicle apart.
-          </p>
-          <p>
-            The two charts below the rocket track <strong>altitude</strong> (how
-            high you've climbed) and <strong>Q over time</strong> (so you can
-            see exactly when stress peaks). On Earth, Max-Q usually hits around
-            10–15 km altitude. On Venus it would be terrifyingly higher. On the
-            Moon it's literally zero.
-          </p>
+          <h2><span class="num">01</span> How to Use This Sandbox</h2>
+          <div class="glossary-grid">
+            <div class="glossary-item">
+              <h4>Overall flow</h4>
+              <p>
+                Pick a planet, tweak the rocket sliders, click
+                <strong>▲ LAUNCH</strong>, watch dynamic pressure peak as the
+                rocket climbs. Click <strong>↻ RESET</strong> to retry with
+                different settings.
+              </p>
+            </div>
+            <div class="glossary-item">
+              <h4>Planet selector</h4>
+              <p>
+                Earth is the baseline. Mars is rocket paradise (thin air, weak
+                gravity). Venus is a nightmare (thick CO₂, Earth-like gravity).
+                Moon has no atmosphere at all. Titan has weak gravity but
+                4× Earth surface density. Each preset switches gravity and
+                atmosphere model.
+              </p>
+            </div>
+            <div class="glossary-item">
+              <h4>The five sliders</h4>
+              <p>
+                <strong>Thrust</strong> is engine push (kN).
+                <strong>Fuel mass</strong> is how much propellant you carry —
+                more fuel means longer burn but heavier rocket.
+                <strong>Dry mass</strong> is the empty vehicle.
+                <strong>Cd</strong> (~0.5 typical) is shape factor; lower
+                = more streamlined. <strong>A</strong> is the frontal
+                cross-section facing the airstream.
+              </p>
+            </div>
+            <div class="glossary-item">
+              <h4>Telemetry tiles</h4>
+              <p>
+                <code>T+</code> is time since launch. The middle block shows
+                altitude, velocity, and acceleration in real time.
+                <code>Q</code> (dynamic pressure) is the headline number — the
+                aerodynamic stress on the airframe. <code>Drag</code> is the
+                resulting force. <code>Fuel</code> ticks down to zero.
+                <code>MAX-Q (PEAK)</code> records the worst moment of stress
+                and the altitude where it happened — and stays after burnout
+                so you can read it.
+              </p>
+            </div>
+            <div class="glossary-item">
+              <h4>The two charts</h4>
+              <p>
+                <strong>Altitude vs Time</strong> shows the climb profile.
+                <strong>Dynamic Pressure vs Time</strong> shows the Q curve —
+                rises as speed builds in dense air, peaks somewhere mid-flight,
+                falls as the air thins. Together they tell you when and where
+                the rocket suffered most.
+              </p>
+            </div>
+            <div class="glossary-item">
+              <h4>Why Q and Max-Q matter</h4>
+              <p>
+                Q = ½ρv² is the aerodynamic stress per area. Max-Q is the
+                worst moment of that stress. Real rockets throttle their
+                engines down at Max-Q so the airframe doesn't snap. This sim
+                runs constant thrust (no throttle), which makes Max-Q
+                artificially severe — that's deliberate, to make the danger
+                viscerally obvious.
+              </p>
+            </div>
+          </div>
         </div>
 
         <div class="footer-section">
-          <h2><span class="num">02</span>Glossary &amp; Formulas</h2>
+          <h2><span class="num">02</span> Dynamic Pressure Drives Drag</h2>
+          <div class="fill-columns">
+            <p>
+              Your friend asked about compression ratio and friction ratio.
+              Here's the connection: in rocket flight, both come out of
+              <strong>the same airflow term</strong>, <code>½ρv²</code>.
+            </p>
+            <p>
+              Density (ρ) times velocity squared, halved. Call it
+              <strong>dynamic pressure (q)</strong> when you're thinking of it
+              as a squeezing force per unit area on the airframe — that's the
+              "compression" feel. Multiply it by drag coefficient and
+              cross-sectional area and now it's <strong>drag force</strong> —
+              the friction slowing you down. They're not literally the same
+              thing (drag also depends on shape, flow regime, Mach number,
+              Reynolds number), but they share that <code>½ρv²</code> heart.
+            </p>
+            <p>
+              This is why thick atmospheres (Venus) and high speeds (anywhere)
+              both punish a rocket: each one pumps up that <code>½ρv²</code>
+              term. Toggle Educational mode to see the equation strip live.
+            </p>
+          </div>
+        </div>
+
+        <div class="footer-section">
+          <h2><span class="num">03</span> Max-Q: Peak Aerodynamic Stress</h2>
+          <div class="fill-columns">
+            <p>
+              A rocket starts in dense atmosphere but moves slowly — small q.
+              As it climbs, density drops fast (exponentially), but velocity
+              grows even faster. Q spikes, peaks somewhere in the middle, then
+              collapses as the rocket leaves atmosphere behind. That peak is
+              <strong>Max-Q</strong>.
+            </p>
+            <p>
+              Many orbital launches hit Max-Q in the lower stratosphere —
+              often roughly 10–15 km — though it varies by vehicle and
+              trajectory. Falcon 9 sees about 35 kPa; Saturn V was about 33
+              kPa. Engineers design the airframe to survive that worst moment,
+              and during a launch broadcast, "passing through Max-Q" is the
+              call you hear when everyone exhales.
+            </p>
+            <p>
+              <em>Note on this sim:</em> real rockets actively
+              <strong>throttle down</strong> as they approach Max-Q (BE-3 can
+              throttle to about 18% of full thrust), then throttle back up
+              once the air thins. This sim runs constant thrust until
+              fuel-out, which makes Max-Q artificially severe compared to a
+              real well-flown ascent. That's a feature, not a bug — it makes
+              the danger of high q viscerally obvious. Just don't read the
+              absolute numbers as predictions.
+            </p>
+          </div>
+        </div>
+
+        <div class="footer-section">
+          <h2><span class="num">04</span> A Tour of Five Worlds</h2>
+
+          <div class="fill-columns">
+          <div class="planet-card">
+            <h4>EARTH — the baseline</h4>
+            <p>
+              The closest real-world inspiration for this sandbox. Surface
+              gravity 9.81 m/s², thick nitrogen-oxygen atmosphere, scale height
+              ~8.5 km. Max-Q is non-trivial but manageable; a healthy
+              thrust-to-weight ratio gets you above 100 km (the Kármán
+              convention, edge of space) with a suborbital-scale propellant
+              load.
+            </p>
+          </div>
+
+          <div class="planet-card">
+            <h4>MARS — rocket paradise</h4>
+            <p>
+              Gravity is ~38% of Earth's and the atmosphere is less than 1% as
+              dense. Dynamic pressure barely registers. The same rocket that
+              struggles on Earth would coast up effortlessly here — which is why
+              Mars Sample Return's ascent vehicle is tiny compared to anything
+              launched from Earth.
+            </p>
+          </div>
+
+          <div class="planet-card">
+            <h4>VENUS — rocket nightmare</h4>
+            <p>
+              Gravity is similar to Earth's, but surface
+              <strong>pressure</strong> is about 92× Earth's, and surface
+              <strong>density</strong> is about 53× Earth sea-level air (65 vs
+              1.225 kg/m³). Pressure-wise, it's like being nearly a kilometer
+              underwater — though the fluid is still hot CO₂ gas, not liquid
+              water. Try the sim with default rocket settings: Max-Q goes
+              absurd, and the rocket may not even break free of the lower
+              atmosphere.
+            </p>
+            <p>
+              <em>Reality check:</em> this sim simulates the
+              <em>same mathematical rocket</em> on Venus — it does not model the
+              fact that an Earth-class engine wouldn't actually function at 92
+              bar ambient pressure (the nozzle physics break down) or survive
+              the 460°C surface heat. Venus mode shows what happens to the
+              equations when atmosphere goes extreme, not what would happen to a
+              buildable vehicle.
+            </p>
+          </div>
+
+          <div class="planet-card">
+            <h4>MOON — pure thrust vs gravity</h4>
+            <p>
+              No atmosphere, no drag, no Max-Q. Q stays at zero the whole
+              flight. This is the cleanest possible test of "thrust vs gravity"
+              because there's no air pushing back at all. The Apollo Lunar
+              Module ascent stage worked because of this — minimal engine,
+              minimal fuel, just escape the gravity well.
+            </p>
+          </div>
+
+          <div class="planet-card">
+            <h4>TITAN — the strangest case</h4>
+            <p>
+              Saturn's largest moon. Gravity is only 14% of Earth's, but the
+              atmosphere is
+              <strong>~4× denser than Earth's at the surface</strong> (5.3 vs
+              1.225 kg/m³). This combination is so extreme that humans could
+              plausibly fly with wing-like aids. A rocket here faces moderate Q
+              from the dense low air but barely fights gravity at all.
+            </p>
+            <p>
+              <em>Atmosphere caveat:</em> the 21 km scale height used here
+              describes Titan's lower atmosphere, where drag during ascent
+              matters most. Titan's real upper atmosphere is far more extended
+              than this simple exponential model suggests — Cassini measured
+              drag at altitudes up to ~975 km. The 600 km "target" line is a
+              high-atmosphere reference marker, not a Kármán line.
+            </p>
+          </div>
+          </div>
+        </div>
+
+        <div class="footer-section">
+          <h2><span class="num">05</span> Glossary &amp; Formulas</h2>
           <p>
             Quick reference for every variable and equation the simulator uses.
             Units in SI throughout.
@@ -512,141 +746,7 @@
         </div>
 
         <div class="footer-section">
-          <h2><span class="num">03</span>Dynamic Pressure Drives Drag</h2>
-          <p>
-            Your friend asked about compression ratio and friction ratio. Here's
-            the connection: in rocket flight, both come out of
-            <strong>the same airflow term</strong>, <code>½ρv²</code>.
-          </p>
-          <p>
-            Density (ρ) times velocity squared, halved. Call it
-            <strong>dynamic pressure (q)</strong> when you're thinking of it as
-            a squeezing force per unit area on the airframe — that's the
-            "compression" feel. Multiply it by drag coefficient and
-            cross-sectional area and now it's <strong>drag force</strong> — the
-            friction slowing you down. They're not literally the same thing
-            (drag also depends on shape, flow regime, Mach number, Reynolds
-            number), but they share that <code>½ρv²</code> heart.
-          </p>
-          <p>
-            This is why thick atmospheres (Venus) and high speeds (anywhere)
-            both punish a rocket: each one pumps up that <code>½ρv²</code> term.
-            Toggle Educational mode to see the equation strip live.
-          </p>
-        </div>
-
-        <div class="footer-section">
-          <h2><span class="num">04</span>Max-Q: Peak Aerodynamic Stress</h2>
-          <p>
-            A rocket starts in dense atmosphere but moves slowly — small q. As
-            it climbs, density drops fast (exponentially), but velocity grows
-            even faster. Q spikes, peaks somewhere in the middle, then collapses
-            as the rocket leaves atmosphere behind. That peak is
-            <strong>Max-Q</strong>.
-          </p>
-          <p>
-            Many orbital launches hit Max-Q in the lower stratosphere — often
-            roughly 10–15 km — though it varies by vehicle and trajectory.
-            Falcon 9 sees about 35 kPa; Saturn V was about 33 kPa. Engineers
-            design the airframe to survive that worst moment, and during a
-            launch broadcast, "passing through Max-Q" is the call you hear when
-            everyone exhales.
-          </p>
-          <p>
-            <em>Note on this sim:</em> real rockets actively
-            <strong>throttle down</strong> as they approach Max-Q (BE-3 can
-            throttle to about 18% of full thrust), then throttle back up once
-            the air thins. This sim runs constant thrust until fuel-out, which
-            makes Max-Q artificially severe compared to a real well-flown
-            ascent. That's a feature, not a bug — it makes the danger of high q
-            viscerally obvious. Just don't read the absolute numbers as
-            predictions.
-          </p>
-        </div>
-
-        <div class="footer-section">
-          <h2><span class="num">05</span>A Tour of Five Worlds</h2>
-
-          <div class="planet-card">
-            <h4>EARTH — the baseline</h4>
-            <p>
-              The closest real-world inspiration for this sandbox. Surface
-              gravity 9.81 m/s², thick nitrogen-oxygen atmosphere, scale height
-              ~8.5 km. Max-Q is non-trivial but manageable; a healthy
-              thrust-to-weight ratio gets you above 100 km (the Kármán
-              convention, edge of space) with a suborbital-scale propellant
-              load.
-            </p>
-          </div>
-
-          <div class="planet-card">
-            <h4>MARS — rocket paradise</h4>
-            <p>
-              Gravity is ~38% of Earth's and the atmosphere is less than 1% as
-              dense. Dynamic pressure barely registers. The same rocket that
-              struggles on Earth would coast up effortlessly here — which is why
-              Mars Sample Return's ascent vehicle is tiny compared to anything
-              launched from Earth.
-            </p>
-          </div>
-
-          <div class="planet-card">
-            <h4>VENUS — rocket nightmare</h4>
-            <p>
-              Gravity is similar to Earth's, but surface
-              <strong>pressure</strong> is about 92× Earth's, and surface
-              <strong>density</strong> is about 53× Earth sea-level air (65 vs
-              1.225 kg/m³). Pressure-wise, it's like being nearly a kilometer
-              underwater — though the fluid is still hot CO₂ gas, not liquid
-              water. Try the sim with default rocket settings: Max-Q goes
-              absurd, and the rocket may not even break free of the lower
-              atmosphere.
-            </p>
-            <p>
-              <em>Reality check:</em> this sim simulates the
-              <em>same mathematical rocket</em> on Venus — it does not model the
-              fact that an Earth-class engine wouldn't actually function at 92
-              bar ambient pressure (the nozzle physics break down) or survive
-              the 460°C surface heat. Venus mode shows what happens to the
-              equations when atmosphere goes extreme, not what would happen to a
-              buildable vehicle.
-            </p>
-          </div>
-
-          <div class="planet-card">
-            <h4>MOON — pure thrust vs gravity</h4>
-            <p>
-              No atmosphere, no drag, no Max-Q. Q stays at zero the whole
-              flight. This is the cleanest possible test of "thrust vs gravity"
-              because there's no air pushing back at all. The Apollo Lunar
-              Module ascent stage worked because of this — minimal engine,
-              minimal fuel, just escape the gravity well.
-            </p>
-          </div>
-
-          <div class="planet-card">
-            <h4>TITAN — the strangest case</h4>
-            <p>
-              Saturn's largest moon. Gravity is only 14% of Earth's, but the
-              atmosphere is
-              <strong>~4× denser than Earth's at the surface</strong> (5.3 vs
-              1.225 kg/m³). This combination is so extreme that humans could
-              plausibly fly with wing-like aids. A rocket here faces moderate Q
-              from the dense low air but barely fights gravity at all.
-            </p>
-            <p>
-              <em>Atmosphere caveat:</em> the 21 km scale height used here
-              describes Titan's lower atmosphere, where drag during ascent
-              matters most. Titan's real upper atmosphere is far more extended
-              than this simple exponential model suggests — Cassini measured
-              drag at altitudes up to ~975 km. The 600 km "target" line is a
-              high-atmosphere reference marker, not a Kármán line.
-            </p>
-          </div>
-        </div>
-
-        <div class="footer-section">
-          <h2><span class="num">06</span>What This Sandbox Does NOT Capture</h2>
+          <h2><span class="num">06</span> What This Sandbox Does NOT Capture</h2>
           <p>
             Every model lies a little. Here are the honest limitations so your
             friend doesn't draw wrong conclusions:
@@ -690,26 +790,28 @@
         </div>
 
         <div class="footer-section">
-          <h2><span class="num">07</span>Things to Try</h2>
-          <p>
-            → Set thrust to minimum on Earth — does it even leave the pad? Now
-            switch to Mars without changing anything.
-          </p>
-          <p>
-            → Crank thrust up on Venus. Watch Max-Q. Can you find a thrust that
-            gets to 50 km without dynamic pressure exceeding what Falcon 9
-            survives (~35 kPa)?
-          </p>
-          <p>
-            → Compare Moon and Mars with identical settings. The atmosphere on
-            Mars is so thin that it almost doesn't matter — but the difference
-            shows up in the velocity curve.
-          </p>
-          <p>
-            → Drop drag coefficient to 0.1 (very streamlined) and increase
-            cross-section to simulate a wider rocket. Which has more impact on
-            Venus?
-          </p>
+          <h2><span class="num">07</span> Things to Try</h2>
+          <div class="fill-columns">
+            <p>
+              → Set thrust to minimum on Earth — does it even leave the pad?
+              Now switch to Mars without changing anything.
+            </p>
+            <p>
+              → Crank thrust up on Venus. Watch Max-Q. Can you find a thrust
+              that gets to 50 km without dynamic pressure exceeding what
+              Falcon 9 survives (~35 kPa)?
+            </p>
+            <p>
+              → Compare Moon and Mars with identical settings. The atmosphere
+              on Mars is so thin that it almost doesn't matter — but the
+              difference shows up in the velocity curve.
+            </p>
+            <p>
+              → Drop drag coefficient to 0.1 (very streamlined) and increase
+              cross-section to simulate a wider rocket. Which has more impact
+              on Venus?
+            </p>
+          </div>
         </div>
       </footer>
     </div>

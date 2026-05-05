@@ -15,6 +15,15 @@ Guidance for CC, Codex, Claude, or any other agent editing this project.
 - The backend is a small Express static server in `server.js`.
 - The app should remain Railway-ready with `npm start`.
 
+## Documentation Strategy
+
+- Keep `README.md` high-level: what the app is, routes, local testing, and where to find deeper docs.
+- Keep `ROADMAP.md` focused on shipped versions, durable decisions, and scoped next work. Do not turn it into a detailed bug diary.
+- Use focused docs under `docs/` for lessons learned or UX patterns that should transfer to later sims. Current example: `docs/solar-ui-lessons.md`.
+- Do not create one-off Markdown files for every UI patch. Fold durable lessons into the focused doc, and keep transient bug details in the commit/PR/chat context.
+- If a shipped behavior changes the V3 contract, update `V3_SPEC.md` so future agents do not follow stale instructions.
+- Update `tree.md` last, after files are added/removed or structure changes.
+
 ## Adding a New Sim
 
 - Create `public/<shelf>/<sim>.html`.
@@ -45,7 +54,7 @@ Every page (homepage and sims) carries the same chrome. When adding a new page, 
 - **Theme init script** in `<head>`, before `</head>`: an IIFE that reads `localStorage["physicsLabTheme"]` and sets `document.documentElement.dataset.theme` (defaults to `"dark"`). Must run pre-paint to avoid a theme flash.
 - **Theme toggle button** at the start of `<body>`: a `.theme-toggle` button with two `<span class="theme-icon">` children (`◑` for dark, `◐` for light). CSS hides the inactive icon based on `[data-theme]`.
 - **Theme click handler** at the end of `<body>`: an IIFE that flips `dataset.theme`, persists to `localStorage`, and dispatches a `themechange` `CustomEvent` so sim canvases can re-read theme tokens.
-- **Site credits footer** as the last element of `<body>`: `<footer class="site-credits">Built by Hwa Lee · <a href="#" rel="noopener">GitHub</a></footer>` (placeholder href until the real GitHub URL ships).
+- **Site credits footer** as the last element of `<body>`: `<footer class="site-credits">Built by Hwa Lee · <a href="https://github.com/leezorba/physics-lab" rel="noopener">GitHub</a></footer>`.
 - **Focus mode toggle** (sim pages only): a `.focus-toggle` button anchored inside the sim canvas container — for friction it lives **inside** `.sim-hint` as a flex item; for rocket it's absolutely positioned in the corner of `.sim-pane`. The shared CSS rule `.sim-stage, .sim-pane { position: relative }` enables the absolute layout. The button's click handler toggles `body.sim-focus` and dispatches a `resize` event so canvases recompute. Two SVGs (`.focus-icon-expand` / `.focus-icon-collapse`, four-corner-bracket Lucide icons) swap visibility based on the body class.
 
 ## CSS Conventions
@@ -83,6 +92,22 @@ Every page (homepage and sims) carries the same chrome. When adding a new page, 
 - Check DOM/state sync after reset. If state changes but sliders do not show it, the fix is incomplete.
 - Check tab switches for state leakage. Switching tabs should not secretly advance another simulation or clear state unless that is intentional.
 
+## Solar UI Practice
+
+`public/astro/solar.html` is the current reference for post-launch UX lessons. Read `docs/solar-ui-lessons.md` before making Solar UI changes or borrowing its patterns for Rocket/Friction improvements.
+
+- Treat the Solar sim as a precomputed mission viewer, not a piloting game.
+- Use SOI as a short automatic handoff around SOI/capture/departure events, then settle back into System or Local. Long auto-SOI playback at high speed made missions harder to read.
+- Use System for long coasts and final return geometry; use Local for target parking orbit, wait, descent, ascent, and surface dwell.
+- Preserve drag-to-pan plus `+`, `-`, `Fit` canvas zoom controls. These are separate from System/SOI/Local frame buttons.
+- Keep Pause/Resume, Back event, Next event, and Reset semantics distinct:
+  - Pause freezes current mission time.
+  - Back/Next jump between mission events.
+  - Reset rewinds the loaded plan to `0 d` and `READY`, preserving destination, mission type, and speed choices.
+- Timeline chips should distinguish current, past, and next events. A `0 d` launch/TLI burn is current at reset/start, then past after playback advances.
+- Do not restore the true-scale toggle casually. Current UI uses a display-scale explanation because true scale looked blank and confused manual testers.
+- Label visual artifacts honestly. Residual gaps are drift artifacts, fallback flyby markers are fallback markers, and long path jumps should not render as fake straight-line maneuvers.
+
 ## Educational Framing
 
 - The stats panel's `mu +/- 2s` result is a scatter/tolerance band, not a confidence interval for the mean.
@@ -107,12 +132,15 @@ npm install && npm start
 - Check `http://localhost:3000/health` (returns `{"ok":true}`).
 - Check `http://localhost:3000/`.
 - Check `http://localhost:3000/astro/rocket.html`.
+- Check `http://localhost:3000/astro/solar.html`.
 - Check `http://localhost:3000/mech/friction.html`.
 - Check `http://localhost:3000/shared/lab.css`.
+- For V3/orbital changes, open `http://localhost:3000/shared/orbital.test.html` and `http://localhost:3000/shared/orbital.mission.test.html`; all 29 gating tests must pass (`16 / 16` and `13 / 13`).
 - For UI changes, also click through in a browser:
   - The theme toggle (top-right) flips dark ↔ light, both DOM and canvas drawings follow, and the choice survives a page reload (localStorage).
   - The focus toggle on each sim collapses the side panel and the canvas takes the full row; clicking again restores.
   - Each sim's interactive elements (planet selector on rocket, three tabs on friction, all sliders) still work and the existing physics rules above still hold.
+  - Solar-specific checks: playback uses a brief SOI handoff near arrival/departure without staying there for long cruise, Pause freezes elapsed time, Reset returns to `0 d` / `READY`, and the first timeline event is current at reset but past after launch starts.
 - Stop the server after confirming.
 
 For documentation-only changes, verify the edited Markdown files by reading them back.

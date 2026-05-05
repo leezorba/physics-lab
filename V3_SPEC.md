@@ -1,6 +1,6 @@
 # V3: Solar System Mission Simulator — Spec v2
 
-Status: Stage 3a shipped, reviewed, and patched. Stage 3b mission planner is implemented and under review patching. Stage 3c not built. Build remaining stages per ROADMAP.
+Status: V3 is shipped end-to-end. Stage 3a physics, Stage 3b mission planner, and Stage 3c UI are implemented, reviewed, patched, and tracked in ROADMAP. This spec remains the V3 contract plus post-ship UI amendments.
 
 This document specifies the third sim for physics-lab: a 2D solar system mission simulator. It replaces "rocket goes straight up" with "rocket leaves Earth, travels to a destination, and returns." It does NOT replace the existing rocket ascent sim — that one stays as a focused atmospheric/Max-Q tool.
 
@@ -97,7 +97,7 @@ For Moon missions (special case): NO heliocentric segment. Entire trajectory is 
 - **Hyperbolic segments (flybys, escape arcs):** no period exists. Start with `dt ≈ t_traverse / 2000` where `t_traverse ≈ 2 · r_SOI / v_∞` is the characteristic SOI-to-SOI traversal time. **However, this dt is known to undersample periapsis.** Worked example: Mars flyby at 1.1× planet radius, v_∞ ≈ 2.65 km/s → t_traverse ≈ 4.35×10⁵ s → dt ≈ 218 s. At periapsis v_p ≈ 5.48 km/s, so the spacecraft moves ≈1190 km per step ≈ **32% of r_p** per step. That's far too coarse for an accurate deflection angle.
   - **Pre-authorized fallback: RK4 for hyperbolic segments.** If the Stage 3b deflection-angle test exceeds 5% error (and given the 32% sampling above, it likely will), swap semi-implicit Euler for RK4 on hyperbolic segments only. Do NOT relitigate this decision in Stage 3b — go straight to RK4 if the test fails. Closed orbits stay on semi-implicit Euler.
 
-**Time acceleration is mandatory and auto-throttles around events.** Default **100,000×** wall clock. User-adjustable from 1× to 10,000,000× (logarithmic stops). The user-set slider is interpreted as the **dwell-phase speed** (parking-orbit waits, return-phase waits, long heliocentric coast). During **event-phase** segments — burns, SOI crossings, capture/departure, descent/ascent — the playback ramps down to a fixed 50,000× so the user can actually see what's happening. Without this, a Mars round trip with strict phase matching is ~14 minutes wall-clock at 100,000× user-set; auto-throttle keeps the boring parts boring and the interesting parts visible. Full UI behavior specified in Stage 3c.
+**Time acceleration is mandatory and auto-throttles around event segments.** Default **100,000×** wall clock. User-adjustable from 1× to 10,000,000× with discrete stops, including added inspection speeds at 300,000× and 500,000×. The user-set slider is interpreted as the **dwell-phase speed** (parking-orbit waits, return-phase waits, long heliocentric coast). During **event-phase segments** — burns, capture/departure, descent/ascent, flyby arcs, and Earth-arrival markers — playback ramps down to a fixed 50,000× so the user can see what's happening. Do not add a broad "near event" speed branch; segment type is authoritative. Without auto-throttle, a Mars round trip with strict phase matching is ~14 minutes wall-clock at 100,000× user-set and the user misses every interesting moment.
 
 **Initial geometry at t=0:** Earth is placed at heliocentric position `(1 AU, 0)` and orbits counter-clockwise. Target planet (Mars / Venus) is placed at the **optimal-launch-window phase angle** — the lead/lag angle that makes the outbound Hohmann ellipse arrive at the target's position. For Earth→Mars this is Mars leading Earth by ≈44.3° at t=0; for Earth→Venus this is Venus trailing Earth by ≈54.0°. Spec authors: don't hand-pick angles in the implementation — derive them from `α = π − ω_target · T_transfer` (target's angular velocity × transfer time), so the same code generalizes if a future destination is added.
 
@@ -111,14 +111,16 @@ For Moon missions (special case): NO heliocentric segment. Entire trajectory is 
 
 **Moon return wait special case:** `returnWaitTime("earth", "moon", t_arrival)` intentionally returns `0` in v1. The Moon mission is modeled in the geocentric frame, with Earth as the central body, so there is no Earth orbital phase to wait for in the simplified closure condition. Stage 3b may still include an explicit `moon_wait` segment for timeline consistency, but its duration is 0 unless a later version adds a fuller Earth-Moon return-window model.
 
-**Adaptive zoom — three discrete levels:**
+**Mission views — three discrete levels:**
 1. **System view** — Sun + planets visible at AU scale. Planet dots rendered at exaggerated size (~10–50× true) for visibility; spacecraft is a tiny moving dot.
 2. **SOI view** — target planet centered, SOI sphere visible, transition arc highlighted.
 3. **Local view** — close to target planet, orbit/operations visible.
 
-Auto-zoom on SOI crossing, with manual override via three discrete buttons (System / SOI / Local). **No scroll-wheel zoom** in v1 — keep the zoom set discrete to match the patched-conic frame structure. A future revision can add continuous zoom if it's worth the complexity.
+Current shipped UI behavior: System is automatic during heliocentric/translunar coast and final return geometry; SOI appears as a short automatic handoff around SOI/capture/departure events; Local is automatic during parking orbit, wait, descent, ascent, and surface dwell. Earlier long auto-SOI playback made high-speed encounters harder to understand. Manual buttons remain System / SOI / Local. SOI crossing and capture/departure can share the same mission timestamp; the UI may hold that handoff briefly for readability, but must not invent mission duration or alter the MissionPlan.
 
-**Visual scale honesty:** include a toggle for "true scale" (planets at real size relative to distances — they'll be invisible dots). Default exaggerated for teaching. Mention this clearly in footer.
+Canvas magnification is separate from frame selection: `+`, `-`, and `Fit` zoom/reset the current view, and drag-to-pan moves the focus. `Fit` returns to each view's readable default framing, so Local may be closer than System. No scroll-wheel zoom in v1.
+
+**Visual scale honesty:** shipped UI uses enlarged planet disks plus a display-scale note instead of a true-scale toggle. True scale was physically honest but looked like a blank/broken canvas to manual testers. Distances and path shapes remain scale-based; planet disk exaggeration is disclosed in the side panel and footer.
 
 **Pre-computed missions.** User picks "Earth → Mars → return," app calculates the full trajectory at start (returns a `MissionPlan`), then animates playback. NOT real-time delta-v budgeting (that's KSP territory).
 
@@ -344,25 +346,44 @@ Now build `public/astro/solar.html`. Uses orbital.js. Features:
 - **Destination selector:** Mars, Venus, Moon
 - **Mission type selector:** Flyby, Orbit and return, Touch and return
 - **"Plan and launch" button** — triggers planMission, switches to playback
-- **2D canvas** with adaptive zoom (system / SOI / local), auto-switching at SOI crossings, three discrete zoom buttons (no scroll-wheel)
-- **Time acceleration slider:** 1× to 10,000,000× with logarithmic stops; default 100,000×. The slider sets the **dwell-phase speed** — see auto-throttle below.
+- **2D canvas** with System / SOI / Local view buttons. System and Local auto-select by mission phase; SOI appears as a brief arrival/departure handoff and remains manually selectable. Canvas also supports `+`, `-`, `Fit` magnification controls and drag-to-pan.
+- **Time acceleration slider:** 1× to 10,000,000× with discrete stops; default 100,000×. The slider sets the **dwell-phase speed** — see auto-throttle below.
 - **Auto-throttle is REQUIRED.** Without it, a Mars round trip with strict phase matching plays for ~14 minutes wall-clock at the 100,000× default and the user misses every interesting moment. Behavior:
-  - **Event phases (capped at 50,000× regardless of slider):** earth_departure (during burn + first ~3 minutes of Earth SOI traversal), capture, departure, descent, ascent, flyby_arc (during the periapsis ±2× r_p window), SOI crossings (within 1% of r_SOI of the boundary), earth_arrival (last ~3 minutes before re-entering Earth SOI).
+  - **Event phases (capped at 50,000× regardless of slider):** event segment types such as earth_departure, capture, departure, descent, ascent, flyby_arc, moon_flyby, LOI capture, TEI departure, and Earth-arrival marker segments. Segment type is authoritative; do not throttle merely because a future event is nearby.
   - **Dwell phases (use slider speed):** heliocentric_outbound, heliocentric_return, target_orbit (if no descent), target_wait, surface_dwell, translunar_coast.
   - **Transitions are smoothed** with a ~0.5 s ramp so the speed change isn't jarring.
   - The current effective speed multiplier is shown in the UI (e.g., "Speed: 100,000× → throttled to 50,000× for capture burn").
-- **Mission timeline:** current segment label, total elapsed/remaining (in mission seconds, displayed as days/hours), and a horizontal segment-bar showing all upcoming events.
+- **Mission timeline:** current segment label, total elapsed/remaining (in mission seconds, displayed as days/hours), and a horizontal segment-bar showing mission events. Chips distinguish current, past, and next events; `0 d` launch/TLI is current at reset/start and past after playback advances.
 - **Δv readout:** per-maneuver list with running total, in km/s.
 - **Earth arrival marker:** show incoming Earth-arrival `arrivalGeocentricSpeed` separately from total Δv. It is not counted as a burn because v1 does not model reentry, aerocapture, or propulsive Earth-orbit capture.
 - **Closure readout:** for `flyby` missions, display `returnAngleMiss` honestly (e.g., "Return arrival: 12° behind Earth — see footer for why"). For `orbit_return` / `touch_return`, display the return wait plus any residual `closureGapDistance` honestly; do not show "closed loop" if the propagated state misses Earth.
-- **"Skip to next event"** button — jumps simulation time to the next entry in MissionPlan.events. Useful for skipping return-phase waits.
-- **"True scale toggle"** for planet sizes (default: exaggerated; toggled: real, expect dots).
+- **"Back event" / "Next event"** buttons — jump simulation time to adjacent MissionPlan events. Useful for skipping return-phase waits without changing the user's selected speed.
+- **Pause / Resume** — freezes and resumes playback without changing mission time.
+- **Reset** — rewinds the loaded plan to `0 d`, sets status to READY, resets canvas zoom/pan, and preserves destination, mission type, and dwell speed selections.
+- **Display scale note** — explains planet disk exaggeration instead of offering a true-scale toggle.
 - **Footer:** equations, glossary, scope/limitations (matches V1/V2 footer style). Must explicitly cover: why Mars round trips take 2.5 years (synodic wait), why flyby missions don't naturally close on Earth (no Δv degree of freedom), Apollo's free-return as the real-world workaround, and why Earth-arrival speed is shown as an energy/safety marker instead of counted as Δv. Footer copy: "Earth arrival speed is shown as an energy/safety marker. It is not included in total Δv because this version stops at Earth-return geometry and does not model atmospheric reentry, aerocapture, or propulsive Earth-orbit capture."
 - **Stage 3c UI concern:** if a deflected flyby orbit does not cross Earth's orbital radius, Stage 3b may use an unbent post-encounter conic for the loose-return marker and attach `returnPropagationNote`. The Stage 3c renderer must avoid a final-frame snap caused by that fallback endState overwrite and label the fallback instead of presenting it as a physical deflected path.
+- **Stage 3c UI concern:** if projected trajectory points create a huge visual connector across the canvas, break the path instead of drawing a straight line that looks like a burn or steering command.
 
 Visual style matches lab.css (dark default, deep blue accent, Inter/Space Grotesk). Page chrome per AGENTS.md → Page Chrome (favicon, theme toggle, focus toggle, site-credits footer, theme init script).
 
 **Each stage gets reviewed (Claude/Gemini/GPT) before next stage starts.** Same process that worked for V1 and V2.
+
+### Stage 3c post-ship UI amendments
+
+Manual testing after V3 ship changed several UI behaviors without changing `orbital.js`:
+
+- SOI appears as a brief automatic handoff around arrival/departure events; System/Local carry the longer automatic phase views.
+- Same-time SOI/capture/departure events are held visually as handoffs instead of flashing through every internal label. This is UI pacing only, not a new mission segment.
+- The true-scale toggle was removed in favor of a display-scale explanation.
+- Timeline chips now show current/past/next state so launch/TLI does not look ignored.
+- DONE state labels the end marker rather than the last coast segment, and playback speed reads as stopped.
+- Reset is a compact rewind-to-start control; Pause/Resume handles temporary stopping.
+- Canvas supports `+`, `-`, `Fit` zoom buttons and drag-to-pan. `Fit` resets to the readable default for the active frame.
+- Parking-orbit and wait visuals render analytically as clean circular orbits.
+- Residual gaps, flyby fallback markers, and long path breaks are labeled/rendered so they do not imply hidden maneuvers.
+
+See `docs/solar-ui-lessons.md` for the focused UX rationale and future-sim takeaways.
 
 ## Pedagogical framing
 
@@ -393,7 +414,7 @@ Footer carries the explanation. Same care as V1 and V2 footers.
 - No gravity assists, no aerocapture, no low-energy transfers
 - No mass/fuel modeling — Δv shown but not converted to propellant via the Tsiolkovsky equation
 - Touch-and-return descent/ascent is a hand-wavy Δv tax, not a real surface mission model
-- Planet sizes are exaggerated for visibility unless "true scale" toggle is active
+- Planet disks are exaggerated for visibility; orbital distances and path shapes remain scale-based
 - **Flyby missions do not close on Earth.** Pure two-body flybys have no degree of freedom to wait for the return launch window. The simulator reports the angular miss honestly rather than faking closure. Real free-return trajectories (Apollo 13) use non-Hohmann outbound transfers tuned so the post-flyby trajectory ends where Earth will be — out of scope for v1.
 
 ## Stage 3a Codex prompt
@@ -434,7 +455,7 @@ This spec went through a review pass before Stage 3a started. The following deci
 - **Energy conservation tolerance:** 0.5% over one circular period at dt = T/1000 (relaxed from 0.1% to honor symplectic Euler's bounded oscillation). High-eccentricity transfer accuracy is guarded separately by the `closedOrbitDt()` half-transfer test.
 - **Frame round-trip tolerance:** relative error < 1e-12.
 - **Auto-throttle in Stage 3c:** mandatory. Event phases capped at 50,000×; dwell phases use slider speed.
-- **Adaptive zoom:** three discrete levels with auto-snap on SOI crossing + three buttons. No scroll-wheel in v1.
+- **Mission views:** three discrete frame buttons. System/Local may auto-select by mission phase; SOI appears as a brief arrival/departure handoff and remains manually selectable. Canvas magnification uses `+`, `-`, and `Fit` controls plus drag-to-pan. No scroll-wheel in v1.
 - **Units:** km, seconds, km/s, km³/s². Vectors are `[x, y]` arrays.
 - **`CONSTANTS` table:** part of Stage 3a deliverable, exported from `orbital.js`.
 

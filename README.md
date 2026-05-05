@@ -5,6 +5,7 @@ A single Railway-deployable service for interactive physics simulators.
 ## Included Labs
 
 - **Astrophysics:** Cross-Planet Rocket Ascent (`/astro/rocket.html`)
+- **Astrophysics:** Solar System Mission Simulator (`/astro/solar.html`)
 - **Mechanics:** Friction Lab (`/mech/friction.html`)
 
 The original source projects remain untouched:
@@ -43,3 +44,12 @@ Railway can deploy this project directly:
 - Express serves the static `public/` tree.
 - Shared visual system lives in `public/shared/lab.css`.
 - Each simulator keeps its JavaScript inline so reviewed physics stays local to the page.
+- Shared orbital math for V3 lives in `public/shared/orbital.js`, with browser test pages beside it.
+
+## Project Docs
+
+- `AGENTS.md` — contributor and agent operating rules.
+- `ROADMAP.md` — shipped versions, durable decisions, and next-step direction.
+- `V3_SPEC.md` — Solar System Mission Simulator physics and UI contract.
+- `docs/solar-ui-lessons.md` — focused lessons from Solar UI testing for future UX work.
+- `tree.md` — current file structure snapshot.

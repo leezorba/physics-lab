@@ -39,6 +39,28 @@
         gap: 18px;
       }
 
+      /* Top control-band needs explicit bottom space; otherwise its
+         border sits flush against the workspace section below and the
+         two 1-px borders read as one doubled line. */
+      .solar-page .control-band {
+        margin-bottom: 22px;
+      }
+
+      /* Inside the playback column, range-row and button-row used to
+         touch each other and the slider sat right against its label.
+         Stack the range label + slider with a small gap, then separate
+         the button-row from the slider so the launch row breathes. */
+      .solar-page .setup-grid .range-row {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 14px;
+      }
+
+      .solar-page .setup-grid .button-row {
+        gap: 10px;
+      }
+
       .solar-page .sim-pane {
         overflow: hidden;
       }
@@ -46,10 +68,44 @@
       .solar-page #solarCanvas {
         height: min(62vw, 660px);
         min-height: 440px;
+        cursor: grab;
+        touch-action: none;
+      }
+
+      .solar-page #solarCanvas.is-panning {
+        cursor: grabbing;
       }
 
       .solar-page .button-row {
-        grid-template-columns: minmax(160px, 1fr) minmax(130px, auto);
+        grid-template-columns: repeat(3, minmax(0, 1fr)) 44px;
+      }
+
+      .solar-page .button-row .btn-launch {
+        grid-column: 1 / -1;
+      }
+
+      .solar-page .btn-icon {
+        padding: 0;
+        min-width: 44px;
+        min-height: 44px;
+        font-size: 1.1rem;
+      }
+
+      .solar-page .canvas-zoom-controls {
+        position: absolute;
+        top: 74px;
+        right: 14px;
+        z-index: 2;
+        display: grid;
+        gap: 6px;
+      }
+
+      .solar-page .canvas-zoom-controls .icon-button {
+        width: 38px;
+        min-width: 38px;
+        height: 38px;
+        background: var(--surface);
+        color: var(--accent);
       }
 
       .solar-page .zoom-row {
@@ -61,6 +117,41 @@
       .solar-page .readout-stack {
         display: grid;
         gap: 10px;
+      }
+
+      .solar-page .scale-note {
+        border-top: 1px solid var(--border);
+        padding-top: 12px;
+      }
+
+      .solar-page .scale-note strong,
+      .solar-page .scale-note span {
+        display: block;
+      }
+
+      .solar-page .scale-note strong {
+        color: var(--text);
+        font-weight: 800;
+      }
+
+      .solar-page .scale-note span {
+        color: var(--text-dim);
+        font-size: 0.82rem;
+        line-height: 1.45;
+        margin-top: 4px;
+      }
+
+      .solar-page .mission-status-strip {
+        border-top: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        font-size: 0.92rem;
+        line-height: 1.5;
+        padding: 14px 18px;
+      }
+
+      .solar-page .mission-status-strip strong {
+        color: var(--accent);
       }
 
       .solar-page .mission-note {
@@ -153,6 +244,18 @@
         color: var(--accent);
       }
 
+      .solar-page .event-chip.is-current {
+        border-color: color-mix(in srgb, var(--amber) 46%, transparent);
+        background: color-mix(in srgb, var(--amber) 12%, transparent);
+        color: var(--amber);
+      }
+
+      .solar-page .event-chip.is-past {
+        border-color: color-mix(in srgb, var(--green) 28%, transparent);
+        color: color-mix(in srgb, var(--green) 70%, var(--text-dim));
+        opacity: 0.82;
+      }
+
       .solar-page .delta-list {
         display: grid;
         gap: 8px;
@@ -182,13 +285,35 @@
         grid-template-columns: 1fr;
       }
 
+      .solar-page .footer-section h2 .num {
+        display: inline-block;
+        margin-right: 10px;
+      }
+
+      .solar-page .limitations-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px 28px;
+      }
+
+      .solar-page .limitations-grid p {
+        max-width: none;
+      }
+
       body.sim-focus .mission-side {
         display: none;
       }
 
       @media (max-width: 1080px) {
         .solar-page .mission-grid,
-        .solar-page .setup-grid {
+        .solar-page .setup-grid,
+        .solar-page .limitations-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 520px) {
+        .solar-page .button-row {
           grid-template-columns: 1fr;
         }
       }
@@ -268,7 +393,7 @@
                 type="range"
                 id="speedSlider"
                 min="0"
-                max="7"
+                max="9"
                 value="5"
                 step="1"
                 aria-label="Time acceleration"
@@ -276,7 +401,10 @@
             </div>
             <div class="button-row">
               <button class="btn btn-launch" id="launchBtn" type="button">Plan and launch</button>
-              <button class="btn btn-reset" id="skipBtn" type="button" disabled>Skip event</button>
+              <button class="btn btn-reset" id="backBtn" type="button" disabled>Back event</button>
+              <button class="btn btn-reset" id="skipBtn" type="button" disabled>Next event</button>
+              <button class="btn btn-reset" id="pauseBtn" type="button" disabled>Pause</button>
+              <button class="btn btn-reset btn-icon" id="resetBtn" type="button" disabled aria-label="Reset mission to start" title="Reset to start">↺</button>
             </div>
           </div>
         </div>
@@ -326,11 +454,19 @@
               <path d="M16 21v-3a2 2 0 0 1 2-2h3" />
             </svg>
           </button>
+          <div class="canvas-zoom-controls" aria-label="Canvas zoom controls">
+            <button class="icon-button" type="button" data-canvas-zoom="in" aria-label="Zoom canvas in" title="Zoom in">+</button>
+            <button class="icon-button" type="button" data-canvas-zoom="out" aria-label="Zoom canvas out" title="Zoom out">-</button>
+            <button class="icon-button" type="button" data-canvas-zoom="reset" aria-label="Reset canvas zoom and pan" title="Reset zoom and pan">Fit</button>
+          </div>
           <div class="pane-label">
             MISSION VIEW
             <span id="viewLabel" style="color: var(--amber); margin-left: 8px">SYSTEM</span>
           </div>
           <canvas id="solarCanvas" width="1000" height="660" aria-label="Solar system mission canvas"></canvas>
+          <div class="mission-status-strip" id="missionStatusLine">
+            <strong>Mission:</strong> choose a destination and launch profile to see the flight stages.
+          </div>
         </section>
 
         <aside class="mission-side">
@@ -362,15 +498,9 @@
               <button class="tab-button" type="button" data-zoom="soi">SOI</button>
               <button class="tab-button" type="button" data-zoom="local">Local</button>
             </div>
-            <div class="toggle-row">
-              <label for="scaleToggle">
-                True scale
-                <small>Planet radii use real distance ratios.</small>
-              </label>
-              <span class="switch">
-                <input id="scaleToggle" type="checkbox" />
-                <span class="slider"></span>
-              </span>
+            <div class="scale-note" aria-label="Display scale">
+              <strong>Display scale</strong>
+              <span>Planet disks are enlarged so they stay visible. In solar System view, Earth is drawn about 120× wider, Mars 170×, Venus 130×, and the Sun 14×. Distances and path shapes remain scale-based.</span>
             </div>
           </section>
 
@@ -409,7 +539,37 @@
 
       <section class="footer-grid" aria-label="Model notes">
         <section class="footer-section">
-          <h2><span class="num">01</span>Core Equations</h2>
+          <h2><span class="num">01</span> How to Read This Sim</h2>
+          <div class="glossary-grid">
+            <div class="glossary-item">
+              <h4>Overall flow</h4>
+              <p>Choose a destination and mission type, then Plan and launch computes the whole route. The white dot is the spacecraft moving through that precomputed mission plan.</p>
+            </div>
+            <div class="glossary-item">
+              <h4>Mission type</h4>
+              <p>Flyby passes the target without stopping. Orbit and return captures into parking orbit, waits, then returns. Touch and return adds approximate descent and ascent Δv.</p>
+            </div>
+            <div class="glossary-item">
+              <h4>Dwell speed</h4>
+              <p>This is time acceleration, not engine throttle. At 300,000×, one real second advances about 3.5 mission days; at 500,000×, about 5.8 days; at 1,000,000×, about 11.6 days.</p>
+            </div>
+            <div class="glossary-item">
+              <h4>SOI view</h4>
+              <p>SOI means sphere of influence: the region where the sim treats one body as the main gravity source. Playback briefly switches to this view during arrival and departure handoffs; the SOI button also lets you inspect that boundary manually.</p>
+            </div>
+            <div class="glossary-item">
+              <h4>System, SOI, Local</h4>
+              <p>System shows the big-picture orbit. SOI focuses on a planet or Moon encounter. Local shows parking orbit, descent, ascent, and wait phases around the active body.</p>
+            </div>
+            <div class="glossary-item">
+              <h4>Δv and closure</h4>
+              <p>Δv is the total planned velocity change from burns. Closure tells whether the return geometry actually meets Earth, or whether the sim is showing an honest residual/flyby marker.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="footer-section">
+          <h2><span class="num">02</span> Core Equations</h2>
           <div class="equation-grid">
             <div class="equation">
               <h4>VIS-VIVA</h4>
@@ -435,7 +595,7 @@
         </section>
 
         <section class="footer-section">
-          <h2><span class="num">02</span>Glossary</h2>
+          <h2><span class="num">03</span> Glossary</h2>
           <div class="glossary-grid">
             <div class="glossary-item">
               <h4>Patched conics</h4>
@@ -457,22 +617,24 @@
         </section>
 
         <section class="footer-section">
-          <h2><span class="num">03</span>Scope and Limitations</h2>
-          <p>
-            The planets are coplanar and circular, the view is 2D, and the trajectory is precomputed. This version has no manual piloting, fuel mass, inclination, low-energy transfers, aerocapture, atmospheric entry, or N-body perturbations.
-          </p>
-          <p>
-            Flyby missions do not naturally close on Earth. Pure two-body flybys have no degree of freedom to wait for the return launch window, so this simulator reports the angular offset instead of faking a closed loop. Real free-return trajectories, including Apollo-style lunar returns, use carefully tuned non-Hohmann geometry that is out of scope here.
-          </p>
-          <p>
-            Orbit-return and touch-return missions may show a residual gap at Earth arrival. That dotted marker is an integration drift artifact from the simplified propagation, not a planned maneuver or a closed-loop claim.
-          </p>
-          <p>
-            Earth arrival speed is shown as an energy/safety marker. It is not included in total Δv because this version stops at Earth-return geometry and does not model atmospheric reentry, aerocapture, or propulsive Earth-orbit capture.
-          </p>
-          <p>
-            Touch-and-return descent and ascent are approximate Δv taxes, not surface mission simulations. Planet sizes are exaggerated by default so they remain visible at solar-system scale; true scale makes most bodies collapse to tiny dots.
-          </p>
+          <h2><span class="num">04</span> Scope and Limitations</h2>
+          <div class="limitations-grid">
+            <p>
+              The planets are coplanar and circular, the view is 2D, and the trajectory is precomputed. This version has no manual piloting, fuel mass, inclination, low-energy transfers, aerocapture, atmospheric entry, or N-body perturbations.
+            </p>
+            <p>
+              Flyby missions do not naturally close on Earth. Pure two-body flybys have no degree of freedom to wait for the return launch window, so this simulator reports the angular offset instead of faking a closed loop. Real free-return trajectories, including Apollo-style lunar returns, use carefully tuned non-Hohmann geometry that is out of scope here.
+            </p>
+            <p>
+              Orbit-return and touch-return missions may show a residual gap at Earth arrival. That dotted marker is an integration drift artifact from the simplified propagation, not a planned maneuver or a closed-loop claim.
+            </p>
+            <p>
+              Earth arrival speed is shown as an energy/safety marker. It is not included in total Δv because this version stops at Earth-return geometry and does not model atmospheric reentry, aerocapture, or propulsive Earth-orbit capture.
+            </p>
+            <p>
+              Touch-and-return descent and ascent are approximate Δv taxes, not surface mission simulations. Planet disks are enlarged so they remain visible at solar-system scale; orbital distances and path shapes remain scale-based.
+            </p>
+          </div>
         </section>
       </section>
     </div>
@@ -490,11 +652,17 @@
         planMission
       } from "/shared/orbital.js";
 
-      const SPEED_STOPS = [1, 10, 100, 1000, 10000, 100000, 1000000, 10000000];
+      const SPEED_STOPS = [1, 10, 100, 1000, 10000, 100000, 300000, 500000, 1000000, 10000000];
       const DEFAULT_SPEED = 100000;
       const DEFAULT_SPEED_INDEX = SPEED_STOPS.indexOf(DEFAULT_SPEED);
       const EVENT_SPEED_CAP = 50000;
-      const SOI_WALL_LOOKAHEAD_SECONDS = 30;
+      const EVENT_HOLD_MS = 900;
+      const SOI_HANDOFF_HOLD_MS = 2800;
+      const SOI_AUTO_LOOKAHEAD_WALL_SECONDS = 1.5;
+      const NEAR_EVENT_LABEL_SECONDS = 86400;
+      const LOCAL_VISUAL_SPEED_CAP = 1000;
+      const CANVAS_ZOOM_MIN = 0.55;
+      const CANVAS_ZOOM_MAX = 3.5;
       const RAMP_SECONDS = 0.5;
       const PARKING_ALTITUDE = 400;
       const EVENT_SEGMENTS = new Set([
@@ -517,6 +685,12 @@
         "ascent",
         "surface_dwell"
       ]);
+      const PARKING_SEGMENTS = new Set([
+        "target_orbit",
+        "target_wait",
+        "moon_orbit",
+        "moon_wait"
+      ]);
       const SYSTEM_SEGMENTS = new Set([
         "heliocentric_outbound",
         "heliocentric_return",
@@ -525,6 +699,7 @@
         "earth_departure",
         "earth_arrival"
       ]);
+      const SOI_HANDOFF_EVENT = /SOI crossing|capture burn|departure burn|flyby periapsis|LOI capture burn|TEI departure burn/i;
       const TARGET_LABELS = {
         mars: "Mars",
         venus: "Venus",
@@ -564,7 +739,10 @@
       const speedSlider = document.getElementById("speedSlider");
       const speedOutput = document.getElementById("speedOutput");
       const launchBtn = document.getElementById("launchBtn");
+      const backBtn = document.getElementById("backBtn");
       const skipBtn = document.getElementById("skipBtn");
+      const pauseBtn = document.getElementById("pauseBtn");
+      const resetBtn = document.getElementById("resetBtn");
       const planStatus = document.getElementById("planStatus");
       const statusLed = document.getElementById("statusLed");
       const segmentLabel = document.getElementById("segmentLabel");
@@ -572,6 +750,7 @@
       const remainingValue = document.getElementById("remainingValue");
       const effectiveSpeed = document.getElementById("effectiveSpeed");
       const totalDv = document.getElementById("totalDv");
+      const missionStatusLine = document.getElementById("missionStatusLine");
       const closureState = document.getElementById("closureState");
       const closureReadout = document.getElementById("closureReadout");
       const deltaList = document.getElementById("deltaList");
@@ -580,9 +759,21 @@
       const timelineProgress = document.getElementById("timelineProgress");
       const timelineTotal = document.getElementById("timelineTotal");
       const eventList = document.getElementById("eventList");
-      const scaleToggle = document.getElementById("scaleToggle");
       const zoomButtons = Array.from(document.querySelectorAll("[data-zoom]"));
+      const canvasZoomButtons = Array.from(document.querySelectorAll("[data-canvas-zoom]"));
       const viewLabel = document.getElementById("viewLabel");
+
+      function defaultZoomScale() {
+        return { system: 1, soi: 1, local: 2.4 };
+      }
+
+      function defaultPanOffset() {
+        return {
+          system: [0, 0],
+          soi: [0, 0],
+          local: [0, 0]
+        };
+      }
 
       const state = {
         destination: "mars",
@@ -595,12 +786,22 @@
         running: false,
         rafId: null,
         lastFrame: 0,
+        holdUntil: 0,
+        holdEvent: null,
         dwellSpeed: DEFAULT_SPEED,
         effectiveSpeed: DEFAULT_SPEED,
         currentZoom: "system",
         manualZoom: null,
-        trueScale: false,
+        zoomScale: defaultZoomScale(),
+        panOffset: defaultPanOffset(),
         phase: {},
+        isPanning: false,
+        lastPanPoint: null,
+        parkingVisual: {
+          entryIndex: null,
+          elapsed: 0,
+          actualElapsed: 0
+        },
         theme: {},
         marsProfileMs: null,
         useRenderStride: false
@@ -650,6 +851,14 @@
 
       function formatSpeed(value) {
         return `${formatNumber(Math.round(value))}×`;
+      }
+
+      function isPlaybackComplete(time = state.missionTime) {
+        return Boolean(state.plan && state.playbackDuration && time >= state.playbackDuration - 0.001);
+      }
+
+      function displayedSpeed() {
+        return !state.running && isPlaybackComplete() ? "0×" : formatSpeed(state.effectiveSpeed);
       }
 
       function formatDuration(seconds) {
@@ -770,7 +979,9 @@
       function activeEntry(time = state.missionTime) {
         if (!state.playbackSegments.length) return null;
         const nonZero = state.playbackSegments.find((entry) => {
-          return entry.displayDuration > 0 && time >= entry.displayStart && time <= entry.displayEnd;
+          return entry.displayDuration > 0 &&
+            time >= entry.displayStart &&
+            (time < entry.displayEnd || (time === state.playbackDuration && time === entry.displayEnd));
         });
         if (nonZero) return nonZero;
         return [...state.playbackSegments].reverse().find((entry) => time >= entry.displayStart) || state.playbackSegments[0];
@@ -779,8 +990,12 @@
       function activeSegmentLabel() {
         const entry = activeEntry();
         if (!entry) return "STANDBY";
+        if (state.holdEvent) return state.holdEvent.label.toUpperCase();
+        if (isPlaybackComplete()) {
+          return state.missionType === "flyby" ? "LOOSE RETURN MARKER" : "EARTH ARRIVAL MARKER";
+        }
         const event = nextEvent(0);
-        const nearEvent = event && Math.abs(event.displayT - state.missionTime) < state.effectiveSpeed * 4;
+        const nearEvent = event && Math.abs(event.displayT - state.missionTime) < NEAR_EVENT_LABEL_SECONDS;
         if (nearEvent) return event.label.toUpperCase();
         return (SEGMENT_LABELS[entry.segment.type] || entry.segment.type).toUpperCase();
       }
@@ -789,16 +1004,83 @@
         return state.events.find((event) => event.displayT > state.missionTime + offsetSeconds);
       }
 
-      function previousEvent() {
-        return [...state.events].reverse().find((event) => event.displayT <= state.missionTime);
+      function previousEvent(offsetSeconds = NEAR_EVENT_LABEL_SECONDS) {
+        return [...state.events].reverse().find((event) => event.displayT < state.missionTime - offsetSeconds);
+      }
+
+      function isSoiHandoffEvent(event) {
+        return Boolean(event && SOI_HANDOFF_EVENT.test(event.label));
+      }
+
+      function soiAutoLookahead() {
+        const raw = Math.max(state.effectiveSpeed, state.dwellSpeed, EVENT_SPEED_CAP) * SOI_AUTO_LOOKAHEAD_WALL_SECONDS;
+        const min = state.destination === "moon" ? 2 * 3600 : 12 * 3600;
+        const max = state.destination === "moon" ? 0.75 * 86400 : 6 * 86400;
+        return Math.max(min, Math.min(max, raw));
+      }
+
+      function nearbySoiHandoffEvent(time) {
+        const windowSeconds = soiAutoLookahead();
+        return state.events.find((event) => {
+          const untilEvent = event.displayT - time;
+          return !event.isGap &&
+            isSoiHandoffEvent(event) &&
+            untilEvent >= 0 &&
+            untilEvent <= windowSeconds;
+        });
+      }
+
+      function crossedEvents(startTime, endTime) {
+        if (!state.events.length || endTime <= startTime) return null;
+        const events = state.events.filter((event) => {
+          return !event.isGap &&
+            event.displayT > startTime + 0.001 &&
+            event.displayT <= endTime + 0.001;
+        });
+        return events.length ? events : null;
+      }
+
+      function holdEventFrom(events) {
+        if (!events?.length) return null;
+        return events.find(isSoiHandoffEvent) || events[0];
+      }
+
+      function holdDurationFor(event) {
+        return isSoiHandoffEvent(event) ? SOI_HANDOFF_HOLD_MS : EVENT_HOLD_MS;
+      }
+
+      function updatePlaybackButtons() {
+        const hasPlan = Boolean(state.plan);
+        if (!hasPlan) {
+          backBtn.disabled = true;
+          skipBtn.disabled = true;
+          pauseBtn.disabled = true;
+          resetBtn.disabled = true;
+          pauseBtn.textContent = "Pause";
+          return;
+        }
+        backBtn.disabled = !hasPlan || state.missionTime <= 0;
+        skipBtn.disabled = !hasPlan || state.missionTime >= state.playbackDuration;
+        const atStart = !state.running && state.missionTime <= 0;
+        const done = state.missionTime >= state.playbackDuration;
+        pauseBtn.disabled = !hasPlan || done || atStart;
+        resetBtn.disabled = !hasPlan || (!state.running && state.missionTime <= 0);
+        pauseBtn.textContent = state.running || done || atStart ? "Pause" : "Resume";
       }
 
       function setDwellSpeed(index) {
         state.dwellSpeed = SPEED_STOPS[Number(index)];
         speedOutput.textContent = formatSpeed(state.dwellSpeed);
+        if (state.plan) {
+          const target = targetSpeedFor(state.missionTime).value;
+          if (state.effectiveSpeed > target) state.effectiveSpeed = target;
+          updateTelemetry();
+          drawScene();
+        }
       }
 
       function eventPhaseReason(time) {
+        if (state.holdEvent) return state.holdEvent.label;
         const entry = activeEntry(time);
         if (entry && EVENT_SEGMENTS.has(entry.segment.type)) {
           return SEGMENT_LABELS[entry.segment.type] || entry.segment.type;
@@ -823,18 +1105,16 @@
         /*
           Stage 3c zoom snap rule:
           - System view during heliocentric/translunar coast and Earth parking markers.
-          - SOI view begins about 30 seconds of wall-clock time before an SOI crossing event.
-          - Local view owns target orbit, target wait, descent, ascent, and surface dwell.
+          - SOI is a short automatic handoff view around SOI/capture/departure
+            events, then playback settles into System or Local. This avoids the
+            old high-speed jump from interplanetary cruise straight into orbit.
+          - Local view owns target orbit, target wait, descent, ascent, and
+            surface dwell after the handoff.
           Manual buttons override this discrete snap until the next plan is launched.
         */
-        const soiLookahead = Math.max(state.effectiveSpeed, EVENT_SPEED_CAP) * SOI_WALL_LOOKAHEAD_SECONDS;
-        const upcomingSoi = state.events.find((event) => {
-          return /SOI crossing/i.test(event.label) &&
-            event.displayT >= time &&
-            event.displayT - time <= soiLookahead;
-        });
-        if (upcomingSoi || type === "flyby_arc" || type === "moon_flyby") return "soi";
+        if (isSoiHandoffEvent(state.holdEvent)) return "soi";
         if (LOCAL_SEGMENTS.has(type)) return "local";
+        if (nearbySoiHandoffEvent(time)) return "soi";
         if (SYSTEM_SEGMENTS.has(type)) return "system";
         return "system";
       }
@@ -863,64 +1143,167 @@
         return entry.displayStart + entry.displayDuration * (index / (count - 1));
       }
 
-      function toSystemFrame(point, segment, t) {
-        if (state.destination === "moon") {
-          if (segment.frame === "moon-centric") return add(point, bodyPosition("moon", t));
-          return point;
-        }
-
-        if (segment.frame === "heliocentric") return point;
-        if (segment.frame === "target-centric") return add(point, bodyPosition(state.destination, t));
-        if (segment.frame === "geocentric") return add(point, bodyPosition("earth", t));
-        return point;
+      function segmentElapsed(entry, time = state.missionTime) {
+        const duration = entry.displayDuration || entry.segment.duration || 0;
+        return Math.max(0, Math.min(duration, time - entry.displayStart));
       }
 
-      function toTargetFrame(point, segment, t) {
-        if (state.destination === "moon") {
-          if (segment.frame === "moon-centric") return point;
-          return sub(point, bodyPosition("moon", t));
-        }
-
-        if (segment.frame === "target-centric") return point;
-        if (segment.frame === "heliocentric") return sub(point, bodyPosition(state.destination, t));
-        if (segment.frame === "geocentric") {
-          return sub(add(point, bodyPosition("earth", t)), bodyPosition(state.destination, t));
-        }
-        return point;
+      function parkingBodyKey(segment) {
+        if (!PARKING_SEGMENTS.has(segment.type)) return null;
+        return segment.type.startsWith("moon") ? "moon" : state.destination;
       }
 
-      function pointForView(point, segment, t, viewMode) {
-        return viewMode === "system" ? toSystemFrame(point, segment, t) : toTargetFrame(point, segment, t);
+      function resetParkingVisual() {
+        state.parkingVisual.entryIndex = null;
+        state.parkingVisual.elapsed = 0;
+        state.parkingVisual.actualElapsed = 0;
+      }
+
+      function syncParkingVisualToActive(time = state.missionTime) {
+        const entry = activeEntry(time);
+        if (!entry || !PARKING_SEGMENTS.has(entry.segment.type)) {
+          resetParkingVisual();
+          return;
+        }
+        const actualElapsed = segmentElapsed(entry, time);
+        state.parkingVisual.entryIndex = entry.index;
+        state.parkingVisual.elapsed = actualElapsed;
+        state.parkingVisual.actualElapsed = actualElapsed;
+      }
+
+      function updateParkingVisual(nextTime, wallDt) {
+        const entry = activeEntry(nextTime);
+        if (!entry || !PARKING_SEGMENTS.has(entry.segment.type)) {
+          resetParkingVisual();
+          return;
+        }
+
+        const actualElapsed = segmentElapsed(entry, nextTime);
+        if (state.parkingVisual.entryIndex !== entry.index) {
+          state.parkingVisual.entryIndex = entry.index;
+          state.parkingVisual.elapsed = actualElapsed;
+          state.parkingVisual.actualElapsed = actualElapsed;
+          return;
+        }
+
+        const actualDelta = Math.max(0, actualElapsed - state.parkingVisual.actualElapsed);
+        const visualDelta = Math.min(actualDelta, wallDt * LOCAL_VISUAL_SPEED_CAP);
+        state.parkingVisual.elapsed = Math.min(actualElapsed, state.parkingVisual.elapsed + visualDelta);
+        state.parkingVisual.actualElapsed = actualElapsed;
+      }
+
+      function parkingOrbitPoint(entry, time = state.missionTime) {
+        const bodyKey = parkingBodyKey(entry.segment);
+        if (!bodyKey) return null;
+        const body = CONSTANTS[bodyKey];
+        const radius = body.radius + PARKING_ALTITUDE;
+        const startAngle = Math.atan2(entry.segment.startState.r[1], entry.segment.startState.r[0]);
+        const elapsed = state.parkingVisual.entryIndex === entry.index
+          ? state.parkingVisual.elapsed
+          : segmentElapsed(entry, time);
+        return circularOrbitState(radius, body.mu, elapsed, startAngle).r;
+      }
+
+      function frameOriginInSystem(segment, t) {
+        if (state.destination === "moon") {
+          if (segment.frame === "moon-centric") return bodyPosition("moon", t);
+          return [0, 0];
+        }
+
+        if (segment.frame === "target-centric") return bodyPosition(state.destination, t);
+        if (segment.frame === "geocentric") return bodyPosition("earth", t);
+        return [0, 0];
+      }
+
+      function pointInSystemFrame(point, segment, t) {
+        return add(point, frameOriginInSystem(segment, t));
+      }
+
+      function currentCraftSystemPoint(time = state.missionTime) {
+        const entry = activeEntry(time);
+        if (!entry) return null;
+        const point = parkingOrbitPoint(entry, time) || segmentPoint(entry, time);
+        return pointInSystemFrame(point, entry.segment, time);
+      }
+
+      function cameraBodyForView(viewMode) {
+        if (viewMode === "system") return state.destination === "moon" ? "earth" : "sun";
+        if (viewMode === "soi") return state.destination;
+        const entry = activeEntry();
+        const frame = entry?.segment.frame;
+        if (frame === "target-centric") return state.destination;
+        if (frame === "moon-centric") return "moon";
+        if (frame === "geocentric") return "earth";
+        if (frame === "heliocentric") return "sun";
+        return state.destination;
+      }
+
+      function bodySystemPosition(bodyKey, t) {
+        if (bodyKey === "sun") return [0, 0];
+        if (bodyKey === "earth") return bodyPosition("earth", t);
+        if (bodyKey === "moon") return bodyPosition("moon", t);
+        return bodyPosition(bodyKey, t);
+      }
+
+      function pointForView(point, segment, t, view) {
+        const systemPoint = pointInSystemFrame(point, segment, t);
+        if (view.mode === "system") return systemPoint;
+        return sub(systemPoint, bodySystemPosition(view.cameraBody, t));
+      }
+
+      function bodyForRange(bodyKey) {
+        if (bodyKey === "sun") return { radius: 696340, soi: 0 };
+        return CONSTANTS[bodyKey];
       }
 
       function viewContext(viewMode) {
         const rect = canvas.getBoundingClientRect();
         const w = rect.width;
         const h = rect.height;
+        const cameraBody = cameraBodyForView(viewMode);
+        const focusBody = bodyForRange(cameraBody);
         const target = CONSTANTS[state.destination];
+        let outsideSoiAutoFit = false;
         let range;
 
         if (viewMode === "system") {
           range = state.destination === "moon"
-            ? CONSTANTS.moon.orbitRadius * 1.28
+            ? (CONSTANTS.moon.orbitRadius + CONSTANTS.moon.soi) * 1.12
             : Math.max(CONSTANTS.earth.orbitRadius, target.orbitRadius) * 1.18;
         } else if (viewMode === "soi") {
-          range = target.soi * 1.18;
+          const autoSoi = state.manualZoom !== "soi";
+          range = target.soi * (autoSoi ? 1.75 : 1.18);
+          const craft = currentCraftSystemPoint();
+          if (craft) {
+            const camera = bodySystemPosition(cameraBody, state.missionTime);
+            const craftDistance = magnitude(sub(craft, camera));
+            if (craftDistance > target.soi) {
+              outsideSoiAutoFit = true;
+              range = Math.max(range, craftDistance * (autoSoi ? 1.25 : 1.12));
+            }
+          }
         } else {
-          range = Math.max(target.radius * 6, (target.radius + PARKING_ALTITUDE) * 3.2);
+          range = Math.max(focusBody.radius * 6, (focusBody.radius + PARKING_ALTITUDE) * 3.2);
         }
 
-        const scale = Math.min(w, h) * 0.45 / range;
+        const zoomScale = state.zoomScale[viewMode] ?? 1;
+        const pan = state.panOffset[viewMode] ?? [0, 0];
+        const scale = Math.min(w, h) * 0.45 / range * zoomScale;
         return {
+          mode: viewMode,
           w,
           h,
           scale,
           range,
+          zoomScale,
+          pan,
+          cameraBody,
+          outsideSoiAutoFit,
           center: [0, 0],
           project(point) {
             return [
-              w / 2 + (point[0] - this.center[0]) * scale,
-              h / 2 - (point[1] - this.center[1]) * scale
+              w / 2 + this.pan[0] + (point[0] - this.center[0]) * scale,
+              h / 2 + this.pan[1] - (point[1] - this.center[1]) * scale
             ];
           }
         };
@@ -935,6 +1318,28 @@
         if (!state.useRenderStride && pointCount <= 25000) return 1;
         const cap = zoomMode === "system" ? 6500 : zoomMode === "soi" ? 4200 : 2800;
         return Math.max(1, Math.ceil(pointCount / cap));
+      }
+
+      function adjustCanvasZoom(action) {
+        const mode = state.currentZoom || "system";
+        if (action === "reset") {
+          state.zoomScale[mode] = defaultZoomScale()[mode] ?? 1;
+          state.panOffset[mode] = [0, 0];
+        } else {
+          const factor = action === "in" ? 1.22 : 1 / 1.22;
+          state.zoomScale[mode] = Math.max(
+            CANVAS_ZOOM_MIN,
+            Math.min(CANVAS_ZOOM_MAX, (state.zoomScale[mode] ?? 1) * factor)
+          );
+        }
+        drawScene();
+      }
+
+      function panCanvasBy(dx, dy) {
+        const mode = state.currentZoom || "system";
+        const pan = state.panOffset[mode] ?? [0, 0];
+        state.panOffset[mode] = [pan[0] + dx, pan[1] + dy];
+        drawScene();
       }
 
       function drawCircle(view, center, radiusKm, color, options = {}) {
@@ -957,13 +1362,22 @@
 
       function bodyRadius(bodyKey, viewMode) {
         const body = bodyKey === "sun" ? { radius: 696340 } : CONSTANTS[bodyKey];
-        if (state.trueScale) return body.radius;
         if (viewMode === "system") {
+          if (state.destination === "moon") {
+            const moonSystemMultipliers = { earth: 3, moon: 6 };
+            return body.radius * (moonSystemMultipliers[bodyKey] || 1);
+          }
           const multipliers = { sun: 14, earth: 120, mars: 170, venus: 130, moon: 90 };
           return body.radius * (multipliers[bodyKey] || 120);
         }
         if (viewMode === "soi") return body.radius * 4;
         return body.radius;
+      }
+
+      function bodyMinPx(bodyKey, viewMode) {
+        if (viewMode === "system") return state.destination === "moon" ? 4 : 7;
+        if (viewMode === "soi") return 5;
+        return bodyKey === "sun" ? 0 : 10;
       }
 
       function drawLabel(text, point, view, color = state.theme.text) {
@@ -984,31 +1398,35 @@
         if (viewMode === "system") {
           if (state.destination === "moon") {
             drawCircle(view, [0, 0], CONSTANTS.moon.orbitRadius, state.theme.rule, { stroke: true });
-            drawCircle(view, [0, 0], bodyRadius("earth", viewMode), state.theme.earth, { fill: true, stroke: false, minPx: state.trueScale ? 0.6 : 8 });
+            drawCircle(view, [0, 0], bodyRadius("earth", viewMode), state.theme.earth, { fill: true, stroke: false, minPx: bodyMinPx("earth", viewMode) });
             drawLabel("Earth", [0, 0], view, state.theme.earth);
             const moon = bodyPosition("moon", state.missionTime);
-            drawCircle(view, moon, bodyRadius("moon", viewMode), state.theme.moon, { fill: true, stroke: false, minPx: state.trueScale ? 0.5 : 7 });
+            drawCircle(view, moon, bodyRadius("moon", viewMode), state.theme.moon, { fill: true, stroke: false, minPx: bodyMinPx("moon", viewMode) });
             drawCircle(view, moon, CONSTANTS.moon.soi, state.theme.soi, { dash: [4, 7], lineWidth: 1 });
             drawLabel("Moon", moon, view, state.theme.moon);
           } else {
             drawCircle(view, [0, 0], CONSTANTS.earth.orbitRadius, state.theme.rule, { stroke: true });
             drawCircle(view, [0, 0], CONSTANTS[state.destination].orbitRadius, state.theme.rule, { stroke: true });
-            drawCircle(view, [0, 0], bodyRadius("sun", viewMode), state.theme.sun, { fill: true, stroke: false, minPx: state.trueScale ? 1 : 12 });
+            drawCircle(view, [0, 0], bodyRadius("sun", viewMode), state.theme.sun, { fill: true, stroke: false, minPx: bodyMinPx("sun", viewMode) });
             drawLabel("Sun", [0, 0], view, state.theme.sun);
             const earth = bodyPosition("earth", state.missionTime);
             const target = bodyPosition(state.destination, state.missionTime);
-            drawCircle(view, earth, bodyRadius("earth", viewMode), state.theme.earth, { fill: true, stroke: false, minPx: state.trueScale ? 0.5 : 7 });
-            drawCircle(view, target, bodyRadius(state.destination, viewMode), state.theme[state.destination], { fill: true, stroke: false, minPx: state.trueScale ? 0.5 : 8 });
+            drawCircle(view, earth, bodyRadius("earth", viewMode), state.theme.earth, { fill: true, stroke: false, minPx: bodyMinPx("earth", viewMode) });
+            drawCircle(view, target, bodyRadius(state.destination, viewMode), state.theme[state.destination], { fill: true, stroke: false, minPx: bodyMinPx(state.destination, viewMode) });
             drawLabel("Earth", earth, view, state.theme.earth);
             drawLabel(TARGET_LABELS[state.destination], target, view, state.theme[state.destination]);
           }
         } else {
-          const targetKey = state.destination;
-          const target = CONSTANTS[targetKey];
-          drawCircle(view, [0, 0], target.soi, state.theme.soi, { dash: [5, 8], lineWidth: viewMode === "soi" ? 1.4 : 0.8 });
-          drawCircle(view, [0, 0], target.radius + PARKING_ALTITUDE, state.theme.rule, { dash: [3, 7], lineWidth: 1 });
-          drawCircle(view, [0, 0], bodyRadius(targetKey, viewMode), state.theme[targetKey], { fill: true, stroke: false, minPx: state.trueScale ? 0.6 : 12 });
-          drawLabel(TARGET_LABELS[targetKey], [0, 0], view, state.theme[targetKey]);
+          const focusKey = view.cameraBody;
+          const focus = bodyForRange(focusKey);
+          const color = state.theme[focusKey] || state.theme.sun;
+          const label = TARGET_LABELS[focusKey] || (focusKey === "earth" ? "Earth" : "Sun");
+          if (focusKey === state.destination || focusKey === "moon") {
+            drawCircle(view, [0, 0], focus.soi, state.theme.soi, { dash: [5, 8], lineWidth: viewMode === "soi" ? 1.4 : 0.8 });
+            drawCircle(view, [0, 0], focus.radius + PARKING_ALTITUDE, state.theme.rule, { dash: [3, 7], lineWidth: 1 });
+          }
+          drawCircle(view, [0, 0], bodyRadius(focusKey, viewMode), color, { fill: true, stroke: false, minPx: bodyMinPx(focusKey, viewMode) });
+          drawLabel(label, [0, 0], view, color);
         }
         ctx.restore();
       }
@@ -1023,6 +1441,9 @@
       function drawSegmentPath(entry, view, viewMode) {
         const segment = entry.segment;
         if (segment.type === "earth_arrival") return;
+        if (PARKING_SEGMENTS.has(segment.type)) return;
+        if (viewMode === "soi" && view.outsideSoiAutoFit && entry !== activeEntry()) return;
+        if (entry.displayStart > state.missionTime) return;
         if (viewMode !== "system") {
           const type = segment.type;
           if (!LOCAL_SEGMENTS.has(type) && !EVENT_SEGMENTS.has(type) && !/coast|outbound|return/.test(type)) return;
@@ -1030,28 +1451,49 @@
         const points = pointsForSegment(segment);
         if (points.length < 2) return;
         const stride = renderStride(points.length, viewMode);
+        const isActive = entry === activeEntry();
+        const progress = entry.displayDuration > 0
+          ? Math.max(0, Math.min(1, (state.missionTime - entry.displayStart) / entry.displayDuration))
+          : 1;
+        const maxPoint = isActive ? progress * (points.length - 1) : points.length - 1;
+        if (maxPoint <= 0) return;
 
         ctx.save();
         ctx.beginPath();
         ctx.strokeStyle = segmentColor(segment);
-        ctx.lineWidth = entry === activeEntry() ? 2.2 : 1.15;
-        ctx.globalAlpha = entry === activeEntry() ? 0.95 : 0.38;
+        ctx.lineWidth = isActive ? 2.2 : 1.15;
+        ctx.globalAlpha = isActive ? 0.95 : 0.38;
 
         let moved = false;
-        for (let i = 0; i < points.length; i += stride) {
-          if (i !== points.length - 1 && points.length - 1 - i < stride) continue;
+        let lastDrawn = null;
+        const pathBreakPx = Math.min(view.w, view.h) * 0.45;
+        for (let i = 0; i <= Math.floor(maxPoint); i += stride) {
+          if (i !== Math.floor(maxPoint) && Math.floor(maxPoint) - i < stride) continue;
           const t = pointTime(entry, i, points.length);
-          const p = pointForView(points[i], segment, t, viewMode);
+          const p = pointForView(points[i], segment, t, view);
           const [x, y] = view.project(p);
           if (!visiblePoint(x, y, 70)) {
             moved = false;
+            lastDrawn = null;
             continue;
           }
-          if (!moved) {
+          if (!moved || (lastDrawn && Math.hypot(x - lastDrawn[0], y - lastDrawn[1]) > pathBreakPx)) {
             ctx.moveTo(x, y);
             moved = true;
           } else {
             ctx.lineTo(x, y);
+          }
+          lastDrawn = [x, y];
+        }
+        if (isActive && maxPoint > 0) {
+          const i = Math.min(points.length - 2, Math.floor(maxPoint));
+          const f = maxPoint - i;
+          const t = entry.displayStart + entry.displayDuration * progress;
+          const p = pointForView(lerp(points[i], points[i + 1], f), segment, t, view);
+          const [x, y] = view.project(p);
+          if (visiblePoint(x, y, 70)) {
+            if (!moved || (lastDrawn && Math.hypot(x - lastDrawn[0], y - lastDrawn[1]) > pathBreakPx)) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
           }
         }
         ctx.stroke();
@@ -1062,6 +1504,7 @@
         const arrival = getArrivalSegment();
         if (!arrival || arrival.closureMarker !== "residual_gap") return;
         if (viewMode !== "system") return;
+        if (state.missionTime < state.playbackDuration) return;
         const returnEntry = state.playbackSegments.find((entry) => {
           return entry.index === state.plan.segments.findIndex((segment) => segment === arrival) - 1;
         });
@@ -1082,22 +1525,34 @@
         ctx.lineTo(b[0], b[1]);
         ctx.stroke();
         ctx.setLineDash([]);
-        ctx.fillStyle = state.theme.residual;
-        ctx.font = "700 11px JetBrains Mono, monospace";
         const label = `residual gap: ${formatKm(arrival.closureGapDistance)} km (drift artifact)`;
-        ctx.fillText(label, (a[0] + b[0]) / 2 + 8, (a[1] + b[1]) / 2 - 8);
+        ctx.font = "700 11px JetBrains Mono, monospace";
+        const metrics = ctx.measureText(label);
+        const boxW = Math.min(view.w - 36, metrics.width + 24);
+        const boxH = 30;
+        const boxX = 18;
+        const boxY = view.h - boxH - 18;
+        ctx.fillStyle = state.theme.panelBg;
+        ctx.strokeStyle = state.theme.panelBorder;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(boxX, boxY, boxW, boxH, 7);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = state.theme.residual;
+        ctx.fillText(label, boxX + 12, boxY + 20);
         ctx.restore();
       }
 
-      function currentCraftPoint(viewMode) {
+      function currentCraftPoint(view) {
         const entry = activeEntry();
         if (!entry) return null;
-        const point = segmentPoint(entry, state.missionTime);
-        return pointForView(point, entry.segment, state.missionTime, viewMode);
+        const point = parkingOrbitPoint(entry) || segmentPoint(entry, state.missionTime);
+        return pointForView(point, entry.segment, state.missionTime, view);
       }
 
-      function drawCraft(view, viewMode) {
-        const point = currentCraftPoint(viewMode);
+      function drawCraft(view) {
+        const point = currentCraftPoint(view);
         if (!point) return;
         const [x, y] = view.project(point);
         if (!visiblePoint(x, y, 30)) return;
@@ -1112,16 +1567,23 @@
         ctx.restore();
       }
 
-      function drawPanel(viewMode) {
+      function drawPanel(view) {
+        const viewMode = view.mode;
         const rect = canvas.getBoundingClientRect();
         const reason = eventPhaseReason(state.missionTime);
         const arrival = getArrivalSegment();
+        const showAutoFitNote = view.outsideSoiAutoFit;
+        const statusLineCount = (reason ? 1 : 0) +
+          (arrival?.returnPropagationNote ? 1 : 0) +
+          (showAutoFitNote ? 1 : 0);
+        const panelHeight = 76 + statusLineCount * 20;
+        let statusY = 78;
         ctx.save();
         ctx.fillStyle = state.theme.panelBg;
         ctx.strokeStyle = state.theme.panelBorder;
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.roundRect(14, 14, Math.min(380, rect.width - 28), arrival?.returnPropagationNote ? 104 : 76, 8);
+        ctx.roundRect(14, 14, Math.min(440, rect.width - 28), panelHeight, 8);
         ctx.fill();
         ctx.stroke();
         ctx.fillStyle = state.theme.text;
@@ -1129,17 +1591,27 @@
         ctx.fillText(`${TARGET_LABELS[state.destination]} · ${MISSION_LABELS[state.missionType]}`, 28, 38);
         ctx.fillStyle = state.theme.textDim;
         ctx.font = "700 11px JetBrains Mono, monospace";
-        ctx.fillText(`View: ${viewMode.toUpperCase()} · Speed: ${formatSpeed(state.effectiveSpeed)}`, 28, 58);
-        if (reason) ctx.fillText(`Auto-throttle: ${reason}`, 28, 78);
+        ctx.fillText(`View: ${viewMode.toUpperCase()} · Speed: ${displayedSpeed()}`, 28, 58);
+        if (reason) {
+          ctx.fillText(`Auto-throttle: ${reason}`, 28, statusY);
+          statusY += 20;
+        }
         if (arrival?.returnPropagationNote) {
           ctx.fillStyle = state.theme.residual;
-          ctx.fillText("Loose-return fallback labeled in closure panel", 28, reason ? 98 : 78);
+          ctx.fillText("Loose-return fallback labeled in closure panel", 28, statusY);
+          statusY += 20;
+        }
+        if (showAutoFitNote) {
+          ctx.fillStyle = state.theme.textDim;
+          ctx.fillText("spacecraft outside target SOI · view auto-fit", 28, statusY);
         }
         ctx.restore();
       }
 
       function drawScene() {
-        const viewMode = state.plan ? autoZoom(state.missionTime) : state.currentZoom;
+        const viewMode = state.plan && (state.running || state.missionTime > 0)
+          ? autoZoom(state.missionTime)
+          : state.currentZoom;
         state.currentZoom = viewMode;
         viewLabel.textContent = viewMode.toUpperCase();
         zoomButtons.forEach((button) => button.classList.toggle("active", button.dataset.zoom === viewMode));
@@ -1152,9 +1624,9 @@
         if (state.plan) {
           state.playbackSegments.forEach((entry) => drawSegmentPath(entry, view, viewMode));
           drawResidualGap(view, viewMode);
-          drawCraft(view, viewMode);
+          drawCraft(view);
         }
-        drawPanel(viewMode);
+        drawPanel(view);
       }
 
       function renderTimeline() {
@@ -1186,10 +1658,21 @@
         eventList.innerHTML = "";
         if (!state.events.length) return;
         const next = nextEvent(0);
+        const currentWindow = 1;
         state.events.forEach((event) => {
           const chip = document.createElement("div");
-          chip.className = `event-chip${event === next ? " is-next" : ""}`;
+          const isCurrent = Math.abs(event.displayT - state.missionTime) <= currentWindow;
+          const isPast = event.displayT < state.missionTime - currentWindow;
+          const isNext = event === next && !isCurrent;
+          const classes = ["event-chip"];
+          if (isCurrent) classes.push("is-current");
+          else if (isPast) classes.push("is-past");
+          else if (isNext) classes.push("is-next");
+          chip.className = classes.join(" ");
           chip.textContent = `${formatDuration(event.displayT)} · ${event.label}`;
+          if (event.displayT === 0) {
+            chip.title = "This burn happens at mission start; after launch it is already complete.";
+          }
           eventList.appendChild(chip);
         });
       }
@@ -1267,6 +1750,126 @@
         }
       }
 
+      function missionProfileSummary() {
+        const target = TARGET_LABELS[state.destination];
+        if (state.missionType === "flyby") {
+          return `Earth launch -> coast to ${target} -> fly past ${target} -> coast back toward Earth's orbit.`;
+        }
+        if (state.missionType === "touch_return") {
+          return `Earth launch -> coast to ${target} -> enter parking orbit -> descend/ascent -> wait -> return to Earth.`;
+        }
+        return `Earth launch -> coast to ${target} -> enter parking orbit -> wait for return window -> return to Earth.`;
+      }
+
+      function stageStatusCopy() {
+        if (!state.plan) {
+          return `<strong>Mission:</strong> choose a destination and launch profile to see the flight stages.`;
+        }
+        const entry = activeEntry();
+        const target = TARGET_LABELS[state.destination];
+        const segment = entry?.segment.type;
+        const handoffEvent = nearbySoiHandoffEvent(state.missionTime);
+        let title;
+        let current;
+
+        if (isSoiHandoffEvent(state.holdEvent)) {
+          if (/departure|TEI/i.test(state.holdEvent.label)) {
+            title = "Phase: SOI handoff";
+            current = `Leaving ${target} operations and handing back to the long return coast. The departure burn is modeled as instantaneous.`;
+          } else if (/flyby/i.test(state.holdEvent.label)) {
+            title = "Phase: flyby";
+            current = `Passing through ${target}'s sphere of influence without stopping. The close encounter changes the return path.`;
+          } else {
+            title = "Phase: SOI handoff";
+            current = `Entering ${target}'s sphere of influence. Capture into parking orbit is modeled as an instantaneous burn, so Local view follows after this handoff.`;
+          }
+        } else if (handoffEvent && !LOCAL_SEGMENTS.has(segment)) {
+          title = "Phase: SOI approach";
+          current = `${target}'s sphere of influence is coming up. The view briefly auto-fits ${target} and the spacecraft before the instantaneous handoff.`;
+        } else if (state.missionTime >= state.playbackDuration) {
+          if (state.missionType === "flyby") {
+            title = "End: loose flyby return marker";
+            current = `The craft flew past ${target} and then followed a loose path back toward Earth's orbit. This does not mean it hit Earth; the Closure card shows the offset or fallback marker.`;
+          } else {
+            title = "End: Earth-arrival marker";
+            current = `The curved purple return path is the simplified transfer back toward Earth. The residual-gap marker is drift from the simplified model, not a new burn or steering command.`;
+          }
+        } else {
+          switch (segment) {
+          case "earth_departure":
+            title = "Phase: launch burn";
+            current = `Leaving low Earth orbit and starting the transfer.`;
+            break;
+          case "heliocentric_outbound":
+            title = "Phase: outbound coast";
+            current = `The craft is coasting around the Sun from Earth's orbit toward ${target}. System view is the clearest view during this long cruise.`;
+            break;
+          case "translunar_coast":
+            title = "Phase: outbound coast";
+            current = `The craft is coasting from Earth toward the Moon. System view shows Earth, the Moon, and the transfer arc.`;
+            break;
+          case "capture":
+          case "loi_capture":
+            title = "Phase: capture burn";
+            current = `Slowing down to be captured into ${target} parking orbit.`;
+            break;
+          case "target_orbit":
+          case "moon_orbit":
+            title = "Phase: parking orbit";
+            current = `Orbiting ${target} in a low parking orbit.`;
+            break;
+          case "target_wait":
+          case "moon_wait":
+            title = "Phase: return-window wait";
+            current = `Waiting in ${target} parking orbit until the return window opens.`;
+            break;
+          case "descent":
+            title = "Phase: descent";
+            current = `Spending the descent delta-v to reach the ${target} surface.`;
+            break;
+          case "surface_dwell":
+            title = "Phase: surface dwell";
+            current = `Paused on the ${target} surface.`;
+            break;
+          case "ascent":
+            title = "Phase: ascent";
+            current = `Spending ascent delta-v to get back to ${target} orbit.`;
+            break;
+          case "departure":
+          case "tei_departure":
+            title = "Phase: return departure";
+            current = `Leaving ${target} orbit for the return trip.`;
+            break;
+          case "heliocentric_return":
+            title = "Phase: return coast";
+            current = `The craft is coasting around the Sun from ${target} back toward Earth's orbit.`;
+            break;
+          case "translunar_return":
+            title = "Phase: return coast";
+            current = `The craft is coasting back from the Moon toward Earth.`;
+            break;
+          case "flyby_arc":
+          case "moon_flyby":
+            title = "Phase: flyby";
+            current = `Flying past ${target} without stopping. A flyby changes the path, but it does not enter parking orbit or land.`;
+            break;
+          case "earth_arrival":
+            title = "Phase: Earth-arrival marker";
+            current = `At the Earth-arrival marker. This sim stops before reentry or aerocapture.`;
+            break;
+          default:
+            title = "Mission";
+            current = missionProfileSummary();
+          }
+        }
+
+        return `<strong>${title}:</strong> ${current}`;
+      }
+
+      function updateMissionStatus() {
+        missionStatusLine.innerHTML = stageStatusCopy();
+      }
+
       function updateTelemetry() {
         if (!state.plan) {
           segmentLabel.textContent = "STANDBY";
@@ -1275,6 +1878,8 @@
           totalDv.textContent = "0.000";
           effectiveSpeed.textContent = formatSpeed(state.effectiveSpeed);
           timelineProgress.style.left = "0%";
+          updateMissionStatus();
+          updatePlaybackButtons();
           return;
         }
 
@@ -1285,12 +1890,16 @@
         segmentLabel.textContent = activeSegmentLabel();
         elapsedValue.textContent = formatDuration(state.missionTime);
         remainingValue.textContent = formatDuration(Math.max(0, state.playbackDuration - state.missionTime));
-        effectiveSpeed.textContent = eventPhaseReason(state.missionTime)
+        effectiveSpeed.textContent = !state.running && isPlaybackComplete()
+          ? "0×"
+          : eventPhaseReason(state.missionTime)
           ? `${formatSpeed(state.dwellSpeed)} → ${formatSpeed(state.effectiveSpeed)}`
           : formatSpeed(state.effectiveSpeed);
         totalDv.textContent = state.plan.totalDeltaV.toFixed(3);
         timelineProgress.style.left = `${Math.min(100, state.missionTime / state.playbackDuration * 100)}%`;
         renderEventList();
+        updateMissionStatus();
+        updatePlaybackButtons();
       }
 
       function profileMarsOrbitReturn() {
@@ -1323,12 +1932,16 @@
         state.playbackDuration = playback.playbackDuration;
         state.missionTime = 0;
         state.effectiveSpeed = state.dwellSpeed;
+        state.holdUntil = 0;
+        state.holdEvent = null;
         state.manualZoom = null;
+        state.zoomScale = defaultZoomScale();
+        state.panOffset = defaultPanOffset();
+        syncParkingVisualToActive();
         state.running = true;
         state.lastFrame = performance.now();
         planStatus.textContent = "LIVE";
         statusLed.classList.add("live");
-        skipBtn.disabled = false;
 
         renderTimeline();
         renderDeltaBudget();
@@ -1341,15 +1954,96 @@
 
       function skipToNextEvent() {
         if (!state.plan) return;
+        state.holdUntil = 0;
+        state.holdEvent = null;
         const event = nextEvent(1);
         if (!event) {
           state.missionTime = state.playbackDuration;
         } else {
           state.missionTime = Math.min(state.playbackDuration, event.displayT);
         }
+        state.holdEvent = isSoiHandoffEvent(event) ? event : null;
+        state.holdUntil = state.holdEvent ? performance.now() + holdDurationFor(state.holdEvent) : 0;
+        if (state.holdEvent) state.effectiveSpeed = Math.min(state.effectiveSpeed, EVENT_SPEED_CAP);
+        syncParkingVisualToActive();
         state.lastFrame = performance.now();
         state.running = state.missionTime < state.playbackDuration;
-        if (state.running && !state.rafId) state.rafId = requestAnimationFrame(loop);
+        if (state.running) {
+          planStatus.textContent = "LIVE";
+          statusLed.classList.add("live");
+          if (!state.rafId) state.rafId = requestAnimationFrame(loop);
+        } else {
+          planStatus.textContent = "DONE";
+          statusLed.classList.remove("live");
+        }
+        updateTelemetry();
+        drawScene();
+      }
+
+      function backToPreviousEvent() {
+        if (!state.plan) return;
+        if (state.rafId) {
+          cancelAnimationFrame(state.rafId);
+          state.rafId = null;
+        }
+        state.holdUntil = 0;
+        state.holdEvent = null;
+        const event = previousEvent();
+        state.missionTime = event ? Math.max(0, event.displayT) : 0;
+        syncParkingVisualToActive();
+        state.lastFrame = performance.now();
+        state.running = false;
+        planStatus.textContent = state.missionTime > 0 ? "PAUSED" : "READY";
+        statusLed.classList.remove("live");
+        updateTelemetry();
+        drawScene();
+      }
+
+      function togglePausePlayback() {
+        if (!state.plan) return;
+        if (state.running) {
+          if (state.rafId) {
+            cancelAnimationFrame(state.rafId);
+            state.rafId = null;
+          }
+          state.running = false;
+          state.holdUntil = 0;
+          state.holdEvent = null;
+          state.lastFrame = 0;
+          planStatus.textContent = "PAUSED";
+          statusLed.classList.remove("live");
+        } else if (state.missionTime < state.playbackDuration) {
+          state.running = true;
+          state.holdUntil = 0;
+          state.holdEvent = null;
+          state.lastFrame = performance.now();
+          planStatus.textContent = "LIVE";
+          statusLed.classList.add("live");
+          if (!state.rafId) state.rafId = requestAnimationFrame(loop);
+        }
+        updateTelemetry();
+        drawScene();
+      }
+
+      function resetMissionToStart() {
+        if (!state.plan) return;
+        if (state.rafId) {
+          cancelAnimationFrame(state.rafId);
+          state.rafId = null;
+        }
+        state.missionTime = 0;
+        state.effectiveSpeed = state.dwellSpeed;
+        state.holdUntil = 0;
+        state.holdEvent = null;
+        state.lastFrame = 0;
+        state.running = false;
+        state.manualZoom = null;
+        state.currentZoom = "system";
+        state.zoomScale = defaultZoomScale();
+        state.panOffset = defaultPanOffset();
+        syncParkingVisualToActive();
+        planStatus.textContent = "READY";
+        statusLed.classList.remove("live");
         updateTelemetry();
         drawScene();
       }
@@ -1361,14 +2055,34 @@
         }
         const wallDt = Math.min(0.08, Math.max(0, (now - state.lastFrame) / 1000));
         state.lastFrame = now;
+        if (state.holdUntil && now < state.holdUntil) {
+          updateTelemetry();
+          drawScene();
+          state.rafId = requestAnimationFrame(loop);
+          return;
+        }
+        state.holdUntil = 0;
+        state.holdEvent = null;
         const target = targetSpeedFor(state.missionTime);
         const ramp = Math.min(1, wallDt / RAMP_SECONDS);
         state.effectiveSpeed += (target.value - state.effectiveSpeed) * ramp;
-        state.missionTime += wallDt * state.effectiveSpeed;
+        const previousTime = state.missionTime;
+        let nextTime = state.missionTime + wallDt * state.effectiveSpeed;
+        const holdEvent = holdEventFrom(crossedEvents(previousTime, nextTime));
+        if (holdEvent) {
+          nextTime = Math.min(state.playbackDuration, holdEvent.displayT);
+          state.holdEvent = holdEvent;
+          state.holdUntil = now + holdDurationFor(holdEvent);
+          state.effectiveSpeed = Math.min(state.effectiveSpeed, EVENT_SPEED_CAP);
+        }
+        state.missionTime = nextTime;
+        updateParkingVisual(state.missionTime, wallDt);
 
         if (state.missionTime >= state.playbackDuration) {
           state.missionTime = state.playbackDuration;
           state.running = false;
+          state.holdUntil = 0;
+          state.holdEvent = null;
           planStatus.textContent = "DONE";
           statusLed.classList.remove("live");
         }
@@ -1404,13 +2118,44 @@
         });
       });
 
-      scaleToggle.addEventListener("change", () => {
-        state.trueScale = scaleToggle.checked;
-        drawScene();
+      canvasZoomButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          adjustCanvasZoom(button.dataset.canvasZoom);
+        });
       });
 
+      canvas.addEventListener("pointerdown", (event) => {
+        state.isPanning = true;
+        state.lastPanPoint = [event.clientX, event.clientY];
+        canvas.classList.add("is-panning");
+        canvas.setPointerCapture(event.pointerId);
+      });
+
+      canvas.addEventListener("pointermove", (event) => {
+        if (!state.isPanning || !state.lastPanPoint) return;
+        const next = [event.clientX, event.clientY];
+        panCanvasBy(next[0] - state.lastPanPoint[0], next[1] - state.lastPanPoint[1]);
+        state.lastPanPoint = next;
+      });
+
+      function stopCanvasPan(event) {
+        state.isPanning = false;
+        state.lastPanPoint = null;
+        canvas.classList.remove("is-panning");
+        if (event && canvas.hasPointerCapture(event.pointerId)) {
+          canvas.releasePointerCapture(event.pointerId);
+        }
+      }
+
+      canvas.addEventListener("pointerup", stopCanvasPan);
+      canvas.addEventListener("pointercancel", stopCanvasPan);
+      canvas.addEventListener("lostpointercapture", stopCanvasPan);
+
       launchBtn.addEventListener("click", planAndLaunch);
+      backBtn.addEventListener("click", backToPreviousEvent);
       skipBtn.addEventListener("click", skipToNextEvent);
+      pauseBtn.addEventListener("click", togglePausePlayback);
+      resetBtn.addEventListener("click", resetMissionToStart);
 
       window.addEventListener("resize", setupCanvas);
       window.addEventListener("themechange", () => {

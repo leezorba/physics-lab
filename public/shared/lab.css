@@ -202,13 +202,23 @@ code {
   margin-bottom: 20px;
   border: 1px solid var(--border);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  /* Solid-ish background + blur so the chip stays legible when sticky
+     scrolls it over the canvas / cards below. */
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
+  backdrop-filter: blur(8px);
   color: var(--accent);
   font-size: 0.88rem;
   font-weight: 700;
   line-height: 1;
   padding: 0.62rem 0.85rem;
   text-decoration: none;
+  /* Stick to the viewport top so the user can always jump back to the
+     lab home from anywhere on the page. align-self keeps the chip
+     from stretching when its parent is a flex/grid container. */
+  position: sticky;
+  top: 16px;
+  z-index: 20;
+  align-self: flex-start;
 }
 
 .back-link:hover {

@@ -97,6 +97,41 @@
         border-top: 1px solid var(--border);
         border-radius: 0 0 var(--radius) var(--radius);
       }
+
+      .friction-page .telemetry-grid .telemetry.peak {
+        grid-column: 1 / -1;
+      }
+
+      /* Pause + reset icon buttons sit side-by-side in the card header. */
+      .friction-page .card-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      /* Visual feedback when the sim is paused. */
+      .friction-page #pauseSim.is-paused {
+        color: var(--accent);
+        border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+        background: var(--surface-soft);
+      }
+
+      /* Two-column layout for narrative-heavy footer sections so text
+         fills the box on full-screen instead of crowding into a single
+         82ch column. Falls back to one column on narrow screens. The
+         per-column width still sits in the comfortable reading band. */
+      .friction-page .fill-columns {
+        columns: 320px 2;
+        column-gap: 32px;
+      }
+      .friction-page .fill-columns p,
+      .friction-page .fill-columns li {
+        max-width: none;
+        break-inside: avoid;
+      }
+      .friction-page .fill-columns p:last-child {
+        margin-bottom: 0;
+      }
       
       .friction-page .footer-grid {
         border-top: 0;
@@ -354,14 +389,25 @@
                   Increase applied force until static friction gives way.
                 </p>
               </div>
-              <button
-                class="icon-button"
-                id="resetSim"
-                type="button"
-                title="Reset simulation: return block to start, zero velocities, clear chart"
-              >
-                ↺
-              </button>
+              <div class="card-actions">
+                <button
+                  class="icon-button"
+                  id="pauseSim"
+                  type="button"
+                  title="Pause / resume the simulation (or press Space)"
+                  aria-label="Pause simulation"
+                >
+                  ⏸
+                </button>
+                <button
+                  class="icon-button"
+                  id="resetSim"
+                  type="button"
+                  title="Reset simulation: return block to start, zero velocities, clear chart"
+                >
+                  ↺
+                </button>
+              </div>
             </div>
             <div class="control-list" id="controlList"></div>
           </section>
@@ -370,7 +416,70 @@
 
       <section class="footer-grid" aria-label="Model notes">
         <section class="footer-section">
-          <h2>Glossary</h2>
+          <h2><span class="num">01</span> How to Use This Lab</h2>
+          <div class="glossary-grid">
+            <div class="glossary-item">
+              <h4>Overall flow</h4>
+              <p>
+                Pick a gravity environment, pick a tab, then push the relevant
+                slider until the block moves. Telemetry tiles, status pill,
+                and the velocity chart all respond live.
+              </p>
+            </div>
+            <div class="glossary-item">
+              <h4>The three tabs</h4>
+              <p>
+                Sliding Block teaches the static-to-kinetic friction transition.
+                Inclined Plane teaches the slip angle (when
+                <code>tan θ</code> exceeds <code>μ_s</code>). Stick-Slip teaches
+                the spring-driven cycle that makes hinges squeak and bows
+                make violins sing.
+              </p>
+            </div>
+            <div class="glossary-item">
+              <h4>Gravity environment</h4>
+              <p>
+                Switching Earth, Moon, Mars, or Custom recomputes normal force
+                (<code>F_n = m·g</code>) and therefore the friction force. Same
+                coefficient of friction can produce very different behavior
+                depending on weight.
+              </p>
+            </div>
+            <div class="glossary-item">
+              <h4>Telemetry tiles</h4>
+              <p>
+                <code>F_n</code> is normal force. <code>Static max</code> is
+                the threshold force needed to start sliding. <code>F_f</code>
+                is the friction force right now. <code>Velocity</code> is
+                live; <code>Peak v</code> records the highest velocity reached
+                this run and persists after the block stops.
+              </p>
+            </div>
+            <div class="glossary-item">
+              <h4>Velocity chart</h4>
+              <p>
+                Below the canvas, plots block velocity over time for the
+                current run. The shape tells you what friction did: a straight
+                line is constant acceleration, a curve that flattens means
+                kinetic friction is eating the gain. Freezes at impact so you
+                can read the history.
+              </p>
+            </div>
+            <div class="glossary-item">
+              <h4>Friction readings panel</h4>
+              <p>
+                Top-right card (click <code>+</code> to expand): paste a
+                column of measured μ values. Shows mean, sample standard
+                deviation, and a μ ± 2s scatter band. Use μ_min when relying
+                on friction to hold (brakes, anchors); use μ_max when sizing
+                motors that must overcome it.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section class="footer-section">
+          <h2><span class="num">02</span> Glossary</h2>
           <div class="glossary-grid">
             <div class="glossary-item">
               <code>F_f</code>
@@ -429,7 +538,7 @@
         </section>
 
         <section class="footer-section">
-          <h2>Core Equations</h2>
+          <h2><span class="num">03</span> Core Equations</h2>
           <div class="equation-grid">
             <div class="equation">
               <code>F_f = μ · F_n</code>
@@ -460,8 +569,8 @@
         </section>
 
         <section class="footer-section">
-          <h2>Why This Matters Off-Earth</h2>
-          <ul>
+          <h2><span class="num">04</span> Why This Matters Off-Earth</h2>
+          <ul class="fill-columns">
             <li>
               Lunar and Martian dust are practical machinery problems because
               abrasive particles can invade seals, joints, wheels, and contact
@@ -487,28 +596,30 @@
         </section>
 
         <section class="footer-section">
-          <h2>What This Does Not Capture</h2>
-          <p>
-            Coulomb friction is empirical, not fundamental. Real contact
-            behavior depends on material pairing, temperature, surface
-            roughness, contamination, wear, lubrication, contact geometry,
-            loading history, and sliding speed.
-          </p>
-          <p>
-            The stick-slip tab uses a sudden <code>μ_s</code> to
-            <code>μ_k</code> switch. Real transitions are smoother, and real
-            systems can include compliance, damping, deformation, and acoustic
-            vibration that are outside this model.
-          </p>
-          <p>
-            The <code>μ ± 2s</code> readout in the stats panel is a scatter or
-            tolerance band — it estimates where ~95% of individual μ readings
-            fall under a normality assumption. It is <em>not</em> a 95%
-            confidence interval for the mean (that would be
-            <code>μ̄ ± t·s/√n</code> and is much narrower for large n). For
-            design conservatism you usually want the scatter band, but the
-            distinction matters when reporting numbers.
-          </p>
+          <h2><span class="num">05</span> What This Does Not Capture</h2>
+          <div class="fill-columns">
+            <p>
+              Coulomb friction is empirical, not fundamental. Real contact
+              behavior depends on material pairing, temperature, surface
+              roughness, contamination, wear, lubrication, contact geometry,
+              loading history, and sliding speed.
+            </p>
+            <p>
+              The stick-slip tab uses a sudden <code>μ_s</code> to
+              <code>μ_k</code> switch. Real transitions are smoother, and real
+              systems can include compliance, damping, deformation, and acoustic
+              vibration that are outside this model.
+            </p>
+            <p>
+              The <code>μ ± 2s</code> readout in the stats panel is a scatter or
+              tolerance band — it estimates where ~95% of individual μ readings
+              fall under a normality assumption. It is <em>not</em> a 95%
+              confidence interval for the mean (that would be
+              <code>μ̄ ± t·s/√n</code> and is much narrower for large n). For
+              design conservatism you usually want the scatter band, but the
+              distinction matters when reporting numbers.
+            </p>
+          </div>
         </section>
       </section>
     </main>
@@ -553,6 +664,7 @@
         gravity: 9.81,
         gravityName: "Earth",
         lastTime: performance.now(),
+        paused: false,
         sliding: {
           force: 0,
           mass: 25,
@@ -560,7 +672,10 @@
           muK: 0.32,
           x: 0,
           v: 0,
+          peakV: 0,
           status: "stuck",
+          elapsed: 0,
+          chart: [],
         },
         incline: {
           angle: 18,
@@ -569,7 +684,10 @@
           muK: 0.32,
           s: 0.92,
           v: 0,
+          peakV: 0,
           status: "stuck",
+          elapsed: 0,
+          chart: [],
         },
         stick: {
           k: 200,
@@ -597,7 +715,10 @@
           muK: 0.32,
           x: 0,
           v: 0,
+          peakV: 0,
           status: "stuck",
+          elapsed: 0,
+          chart: [],
         },
         incline: {
           angle: 18,
@@ -606,7 +727,10 @@
           muK: 0.32,
           s: 0.92,
           v: 0,
+          peakV: 0,
           status: "stuck",
+          elapsed: 0,
+          chart: [],
         },
         stick: {
           k: 200,
@@ -683,7 +807,9 @@
 
       function freshDefaults(tab) {
         const next = { ...defaults[tab] };
-        if (tab === "stick") next.chart = [];
+        // Replace chart arrays with fresh ones so reset doesn't keep
+        // mutating the shared default array.
+        if ("chart" in next) next.chart = [];
         return next;
       }
 
@@ -718,6 +844,15 @@
       function setGravity(name, g, isCustom = false) {
         state.gravityName = name;
         state.gravity = Number(g);
+        // Peak velocity and the velocity chart are gravity-dependent;
+        // clear them on the tabs that track them so the readout and
+        // chart reflect the current environment, not stale history.
+        state.sliding.peakV = 0;
+        state.sliding.elapsed = 0;
+        state.sliding.chart = [];
+        state.incline.peakV = 0;
+        state.incline.elapsed = 0;
+        state.incline.chart = [];
         document.getElementById("gravityReadout").textContent =
           `${name} · ${fmt(state.gravity, 2)} m/s²`;
         document
@@ -830,10 +965,18 @@
         const staticMax = m.muS * fn;
         const kinetic = m.muK * fn;
         const maxX = 1;
+        const wasMoving = m.status === "sliding";
 
         if (m.x >= maxX) {
           m.x = maxX;
           if (m.v > 0 || m.force > 0) {
+            // Capture peak before the wall zeroes it so the run's high
+            // water mark stays readable in telemetry after impact.
+            m.peakV = Math.max(m.peakV ?? 0, m.v);
+            // Stamp the impact frame on the chart so the curve drops
+            // visibly to zero at the wall.
+            m.elapsed = (m.elapsed ?? 0) + dt;
+            recordSlidingChart(m, 0);
             m.v = 0;
             m.status = "at wall";
             return;
@@ -847,7 +990,10 @@
         } else {
           const net = m.force - kinetic;
           m.v = Math.max(0, m.v + (net / m.mass) * dt);
+          m.peakV = Math.max(m.peakV ?? 0, m.v);
           m.x = m.x + m.v * dt * 0.2;
+          m.elapsed = (m.elapsed ?? 0) + dt;
+          recordSlidingChart(m, m.v);
           if (m.x >= maxX) {
             m.x = maxX;
             m.v = 0;
@@ -856,6 +1002,21 @@
           }
           m.status = m.v > 0.001 ? "sliding" : "stuck";
         }
+
+        // If the block hadn't started moving this tick, advance elapsed
+        // anyway so the very first chart point starts at a sane t > 0.
+        if (!wasMoving && !isMoving) {
+          m.elapsed = (m.elapsed ?? 0) + dt;
+        }
+      }
+
+      function recordSlidingChart(m, v) {
+        if (!m.chart) m.chart = [];
+        // Only start recording once motion begins; keep recording until
+        // we stamp the impact zero, then freeze (caller stops calling).
+        if (m.chart.length === 0 && v <= 0) return;
+        m.chart.push({ t: m.elapsed, v });
+        if (m.chart.length > 240) m.chart.shift();
       }
 
       function updateIncline(dt) {
@@ -866,11 +1027,18 @@
         const fn = m.mass * state.gravity * Math.cos(angleRad);
         const staticMax = m.muS * fn;
         const kinetic = m.muK * fn;
-        const minS = 0.16;
+        // 0.06 lets the rotated block's lower corner touch the floor line
+        // at all sliding angles without clipping into the ground area.
+        const minS = 0.06;
 
         if (m.s <= minS) {
           m.s = minS;
           if (m.v > 0 || downSlope > 0) {
+            // Capture peak before the base zeroes it so the run's high
+            // water mark stays readable in telemetry after the stop.
+            m.peakV = Math.max(m.peakV ?? 0, m.v);
+            m.elapsed = (m.elapsed ?? 0) + dt;
+            recordInclineChart(m, 0);
             m.v = 0;
             m.status = "at base";
             return;
@@ -886,8 +1054,11 @@
         } else {
           const net = downSlope - kinetic;
           m.v = Math.max(0, m.v + (net / m.mass) * dt);
+          m.peakV = Math.max(m.peakV ?? 0, m.v);
           // Block slides down the ramp: m.s = 0 is base, m.s = 1 is top.
           m.s -= m.v * dt * 0.12;
+          m.elapsed = (m.elapsed ?? 0) + dt;
+          recordInclineChart(m, m.v);
           if (m.s <= minS) {
             m.s = minS;
             m.v = 0;
@@ -896,6 +1067,13 @@
           }
           m.status = m.v > 0.01 ? "sliding" : "stuck";
         }
+      }
+
+      function recordInclineChart(m, v) {
+        if (!m.chart) m.chart = [];
+        if (m.chart.length === 0 && v <= 0) return;
+        m.chart.push({ t: m.elapsed, v });
+        if (m.chart.length > 240) m.chart.shift();
       }
 
       function updateStick(dt) {
@@ -1095,6 +1273,20 @@
         ctx.lineTo(width - 34, groundY);
         ctx.stroke();
 
+        // Wall the block clamps against at m.x = 1. Drawn so the
+        // "AT WALL" stop feels expected, not magic. Right edge of the
+        // block at maxX sits at leftPad + travel + blockW.
+        const wallX = leftPad + travel + blockW;
+        ctx.strokeStyle = theme.groundLine;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(wallX, groundY - 96);
+        ctx.lineTo(wallX, groundY);
+        ctx.stroke();
+        ctx.fillStyle = theme.textDim;
+        ctx.font = "700 10px JetBrains Mono, monospace";
+        ctx.fillText("wall", wallX - 28, groundY - 86);
+
         drawBlock(ctx, blockX, blockY, blockW, blockH);
 
         // Clamp arrow lengths to canvas bounds so labels stay on-screen.
@@ -1169,7 +1361,7 @@
         const rampLen = Math.min(width * 0.64, 520, maxByHeight);
         const endX = baseX + rampLen * Math.cos(angleRad);
         const endY = baseY - rampLen * Math.sin(angleRad);
-        const blockS = clamp(m.s, 0.16, 0.93);
+        const blockS = clamp(m.s, 0.06, 0.93);
         const blockX = baseX + rampLen * blockS * Math.cos(angleRad);
         const blockY = baseY - rampLen * blockS * Math.sin(angleRad);
         const threshold = (Math.atan(m.muS) * 180) / Math.PI;
@@ -1302,8 +1494,7 @@
         ctx.lineTo(width - 34, groundY);
         ctx.stroke();
 
-        ctx.fillStyle = "#1a344e";
-        ctx.fillRect(42, groundY - 138, 18, 138);
+        // Drive anchor on the right (the spring's fixed end).
         ctx.fillStyle = "#63d6ff";
         ctx.fillRect(driveX - 5, blockY - 10, 10, blockH + 20);
         drawSpring(ctx, blockX + blockW, springY, driveX - 5, springY);
@@ -1389,36 +1580,46 @@
           chartCtx.stroke();
         }
 
+        const titles = {
+          sliding: "block velocity vs time",
+          incline: "block velocity vs time",
+          stick: "block velocity vs time",
+        };
+        const hints = {
+          sliding: "push F past static max to start a run",
+          incline: "tilt past slip angle to start a run",
+          stick: "spring drives the block — slip-stick cycle below",
+        };
         chartCtx.fillStyle = theme.text;
         chartCtx.font = "700 13px JetBrains Mono";
-        chartCtx.fillText(
-          state.tab === "stick"
-            ? "block velocity vs time"
-            : "stick-slip chart appears on the Stick-Slip tab",
-          16,
-          24,
-        );
+        chartCtx.fillText(titles[state.tab] || "velocity vs time", 16, 24);
 
-        if (state.tab !== "stick") return;
-
-        const data = state.stick.chart;
-        const maxV = Math.max(0.05, ...data.map((p) => p.v));
-        if (data.length > 1) {
-          const tMin = data[0].t;
-          const tSpan = Math.max(0.001, data[data.length - 1].t - tMin);
-          chartCtx.strokeStyle = "#f4b43f";
-          chartCtx.lineWidth = 2;
-          chartCtx.beginPath();
-          data.forEach((point, index) => {
-            const x = ((point.t - tMin) / tSpan) * (width - 32) + 16;
-            const y = height - 18 - (point.v / maxV) * (height - 52);
-            if (index === 0) chartCtx.moveTo(x, y);
-            else chartCtx.lineTo(x, y);
-          });
-          chartCtx.stroke();
+        const data = state[state.tab]?.chart || [];
+        if (data.length < 2) {
+          chartCtx.fillStyle = theme.textDim;
+          chartCtx.font = "700 11px JetBrains Mono";
+          chartCtx.fillText(hints[state.tab] || "", 16, height - 14);
+          return;
         }
+
+        const maxV = Math.max(0.05, ...data.map((p) => p.v));
+        const tMin = data[0].t;
+        const tSpan = Math.max(0.001, data[data.length - 1].t - tMin);
+        chartCtx.strokeStyle = "#f4b43f";
+        chartCtx.lineWidth = 2;
+        chartCtx.beginPath();
+        data.forEach((point, index) => {
+          const x = ((point.t - tMin) / tSpan) * (width - 32) + 16;
+          const y = height - 18 - (point.v / maxV) * (height - 52);
+          if (index === 0) chartCtx.moveTo(x, y);
+          else chartCtx.lineTo(x, y);
+        });
+        chartCtx.stroke();
+
         chartCtx.fillStyle = theme.textDim;
+        chartCtx.font = "700 11px JetBrains Mono";
         chartCtx.fillText(`max ${fmt(maxV, 2)} m/s`, width - 124, 24);
+        chartCtx.fillText(`${fmt(tSpan, 2)} s`, width - 124, height - 14);
       }
 
       function renderTelemetry() {
@@ -1438,11 +1639,13 @@
               : Math.min(m.force, staticMax);
           status = m.status;
           className += m.status === "sliding" ? " sliding" : "";
+          const peakV = m.peakV ?? 0;
           rows = [
             ["F_n", `${fmt(fn, 1)} N`],
             ["Static max", `${fmt(staticMax, 1)} N`],
             ["F_f", `${fmt(friction, 1)} N`],
             ["Velocity", `${fmt(m.v, 2)} m/s`],
+            ["Peak v", `${fmt(peakV, 2)} m/s`, "peak"],
           ];
         }
 
@@ -1459,11 +1662,13 @@
               : m.status === "near slip"
                 ? " near"
                 : "";
+          const peakV = m.peakV ?? 0;
           rows = [
             ["F_n", `${fmt(fn, 1)} N`],
             ["m·g·sinθ", `${fmt(parallel, 1)} N`],
             ["Slip angle", `${fmt(threshold, 1)}°`],
             ["Velocity", `${fmt(m.v, 2)} m/s`],
+            ["Peak v", `${fmt(peakV, 2)} m/s`, "peak"],
           ];
         }
 
@@ -1486,8 +1691,10 @@
         pill.textContent = status;
         grid.innerHTML = rows
           .map(
-            ([label, value]) =>
-              `<div class="telemetry"><span>${label}</span><strong>${value}</strong></div>`,
+            ([label, value, extraClass]) => {
+              const cls = extraClass ? `telemetry ${extraClass}` : "telemetry";
+              return `<div class="${cls}"><span>${label}</span><strong>${value}</strong></div>`;
+            },
           )
           .join("");
       }
@@ -1541,7 +1748,7 @@
       function frame(now) {
         const dt = (now - state.lastTime) / 1000;
         state.lastTime = now;
-        updatePhysics(dt);
+        if (!state.paused) updatePhysics(dt);
         render();
         requestAnimationFrame(frame);
       }
@@ -1592,6 +1799,29 @@
       document
         .getElementById("resetSim")
         .addEventListener("click", resetActiveTab);
+
+      function togglePause() {
+        state.paused = !state.paused;
+        // Reset the wall-clock anchor when resuming so the next dt is
+        // a single frame, not the whole paused duration.
+        if (!state.paused) state.lastTime = performance.now();
+        const btn = document.getElementById("pauseSim");
+        btn.classList.toggle("is-paused", state.paused);
+        btn.textContent = state.paused ? "▶" : "⏸";
+        btn.setAttribute(
+          "aria-label",
+          state.paused ? "Resume simulation" : "Pause simulation",
+        );
+      }
+      document.getElementById("pauseSim").addEventListener("click", togglePause);
+      window.addEventListener("keydown", (event) => {
+        // Spacebar toggles pause unless the user is typing in a field.
+        if (event.code !== "Space") return;
+        const t = event.target;
+        if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+        event.preventDefault();
+        togglePause();
+      });
 
       document.getElementById("statsToggle").addEventListener("click", () => {
         const body = document.getElementById("statsBody");

@@ -55,7 +55,7 @@ No further work unless feedback comes from the friend.
 
 **Product metaphor:** a science-lab homepage with shelves or benches for different physics areas:
 
-- **Astrophysics** — Rocket Ascent Simulator now; Solar System Mission Simulator later.
+- **Astrophysics** — Rocket Ascent Simulator and Solar System Mission Simulator.
 - **Mechanics** — Friction Lab now.
 - **Future shelves** — Thermodynamics, electromagnetism, quantum, and other educational experiments.
 
@@ -97,7 +97,7 @@ No further work unless feedback comes from the friend.
 - **Canvas theming:** both sims read canvas-specific CSS tokens (`--canvas-bg`, `--canvas-grid`, `--canvas-text`, `--canvas-panel-bg`, etc.) via `getComputedStyle` and re-cache on `themechange`. No hardcoded hex/rgba in canvas drawing code.
 - **Focus mode:** each sim page has a corner-bracket SVG button (Lucide-style) that toggles `body.sim-focus`, collapses the side panel, and gives the canvas the full row width. Canvases recompute on the dispatched `resize` event.
 - **Inline SVG favicon:** 🪐 emoji rendered via inline SVG data URI. No separate file.
-- **Site credits footer:** `Built by Hwa Lee · GitHub` (placeholder href) on every page.
+- **Site credits footer:** `Built by Hwa Lee · GitHub` on every page, linked to `https://github.com/leezorba/physics-lab`.
 - **Casual / Educational mode removed:** the rocket sim no longer has a casual/edu toggle — all telemetry, sliders, and equations show unconditionally. `.edu-only` and `body.edu-mode` classes are gone.
 - **Friction arrow refactor:** the `arrow()` helper now (a) skips near-zero arrows so labels never strand inside the block, (b) places labels past the arrowhead in the arrow's direction (left arrow → label left of tip, etc.), and (c) clamps sliding-block arrow lengths to canvas bounds so F and F_f never run off-screen.
 - **Friction info pill:** on-canvas readouts (`static max`, `kinetic friction`, `slip angle`, etc.) now render inside a framed panel using `--canvas-panel-bg` / `--canvas-panel-border`, mirroring the rocket sim's existing gravity readout style.
@@ -114,22 +114,29 @@ No further work unless feedback comes from the friend.
 
 ---
 
-## V3: Solar System Mission Simulator (STAGE 3B SHIPPED — see V3_SPEC.md)
+## V3: Solar System Mission Simulator — DONE
 
-**Status:** Stage 3a is shipped, reviewed, and patched. Stage 3b is shipped, reviewed, and closure-gap-fixed. Stage 3c is not built.
+**Status:** complete. Built into `physics-lab/` as `public/astro/solar.html`, with the shared orbital physics module in `public/shared/orbital.js`.
 
-**Detailed spec lives in [`V3_SPEC.md`](V3_SPEC.md)** at the repo root. That file is the source of truth for V3 — destinations, mission types, physics framework, reference numbers, staged build plan with per-stage tests, and the resolved conventions (initial geometry, return-phase matching, closed-orbit and hyperbolic-segment dt, default time acceleration, flyby periapsis, units, etc.).
+**What it does:** a 2D patched-conic mission simulator for Earth-to-Mars, Earth-to-Venus, and Earth-to-Moon missions. Users choose flyby, orbit-and-return, or touch-and-return profiles, then watch the precomputed mission animate with guided System/Local views, optional SOI inspection, time acceleration, mission timeline, Δv budget, display-scale explanation, and honest closure markers.
 
-**Build plan summary** (full detail in V3_SPEC.md → "Staged build plan"):
-- **Stage 3a — SHIPPED / REVIEWED / PATCHED** — `public/shared/orbital.js` + `orbital.test.html`. Pure math: propagate, closedOrbitDt, hohmannTransfer, sphereOfInfluence, visViva, escapeBurn, transformFrame, hohmannPhaseAngle, returnWaitTime, plus a `CONSTANTS` table. Original gating tests pass, and the review patch adds high-eccentricity dt coverage, angular momentum, propagation-based Kepler's 3rd law, isolated escapeBurn checks, stronger frame-transform checks, and validation guards. CC touch-up pass applied: Moon dt-policy test now uses anchor expectations instead of duplicating the formula; escapeBurn tests use the locked hyperbolic-escape formula rather than bound lunar-TLI shorthand.
-- **Stage 3b — SHIPPED / REVIEWED / CLOSURE-GAP-FIXED** — `planMission(originBody, targetBody, missionType, options) → MissionPlan` in `orbital.js`. Six mission patterns (Mars/Venus/Moon × flyby/orbit-return/touch-return). Still no UI. Review fixes include propagated interplanetary/translunar return arcs, honest residual Earth-arrival gap markers, Venus orbit-return coverage, and the Earth-arrival speed marker convention.
-- **Stage 3c — NEXT APPROVAL GATE** — `public/astro/solar.html`. Adaptive zoom, time acceleration, mission timeline, Δv readout, true-scale toggle, footer. Visual style matches lab.css.
+### What shipped
 
-Each stage gets reviewed before the next starts — same process that worked for V1 and V2.
+- **Stage 3a physics module:** `public/shared/orbital.js` + `public/shared/orbital.test.html`. Pure orbital math: propagation, Hohmann transfers, closed-orbit dt policy, SOI radius, vis-viva, escape burns, frame transforms, phase angles, return-window waits, closure angles, constants, and validation guards.
+- **Stage 3b mission planner:** `planMission(originBody, targetBody, missionType, options) → MissionPlan`, with six mission patterns across Mars, Venus, and Moon. Review fixes include propagated return arcs, strict-return residual gap markers, Venus orbit-return coverage, and the Earth-arrival speed marker convention.
+- **Stage 3c UI:** `public/astro/solar.html`, consuming the reviewed mission planner. The UI includes destination and mission selectors, Plan and launch, auto-throttled playback, System/SOI/Local view buttons, canvas zoom/pan controls, timeline, Back/Next event controls, Pause/Resume, Reset, Δv budget, display-scale note, theme/focus chrome, and a V1/V2-style footer.
+- **Homepage integration:** the Astrophysics shelf now links to the Solar System Mission Simulator.
+- **UX lessons doc:** `docs/solar-ui-lessons.md` captures the post-ship UI decisions so future Rocket/Friction polish can reuse the lessons without bloating this roadmap.
 
-**Why physics-first:** two-body orbits, patched conics, Hohmann transfers, scale ratios spanning 6 orders of magnitude. A one-shot Codex prompt will produce something that *looks* right and is subtly wrong. The physics module is built and tested in isolation so UI bugs can't hide physics bugs.
+### Verification
 
-**Next gate:** Stage 3c can start only after explicit approval. Stage 3b is built, tested, reviewed, and closure-gap-fixed.
+- Stage 3a browser harness: 16/16 passing.
+- Stage 3b browser harness: 13/13 passing.
+- Stage 3c browser passes covered all Mars/Venus/Moon × flyby/orbit-return/touch-return combinations during initial ship, plus later regression checks for Mars/Venus/Moon orbit-return at 1,000,000× and 10,000,000×.
+- Solar UI regression checks confirmed Pause freezes elapsed time, Reset returns to `0 d` / `READY`, high-speed playback uses only brief SOI handoffs instead of long SOI cruise, and timeline chips distinguish current/past/next events.
+- Local route checks confirmed `/`, `/astro/solar.html`, `/astro/rocket.html`, `/mech/friction.html`, `/shared/lab.css`, and `/health`.
+
+No further V3 work unless post-publish feedback or the logged follow-up investigation below warrants it.
 
 ### Decisions logged
 
@@ -139,6 +146,10 @@ Each stage gets reviewed before the next starts — same process that worked for
 - Future option: V4 "Mission Story Mode" can stitch V1 + V3 conceptually with a step-through narrative and combined Δv budget card, after V3 ships and feedback warrants it.
 - Stage 3b labels strict-return residual drift instead of correcting it. Iterative targeting would require a shooting solve on return wait/departure timing, which is its own Stage 3b.5/3c engineering project and should not be bolted onto the mission planner patch.
 - Post-publish investigation: Mars-flyby `arrivalGeocentricSpeed` can describe a fallback loose-return marker when `returnPropagationNote` exists, not a point the deflected flyby physically reaches. Consider suppressing that marker when fallback reporting is active.
+- Stage 3c uses SOI as a short arrival/departure handoff view, then returns to System or Local. Long auto-SOI playback made high-speed transfers harder to understand.
+- Stage 3c replaced the true-scale toggle with a display-scale explanation. True scale was physically honest but looked like an empty/broken canvas for the intended educational UI.
+- Stage 3c keeps Reset as a compact rewind-to-start control while Pause/Resume handles temporary stopping. Back/Next event controls remain timeline navigation, not speed resets.
+- Stage 3c timeline chips mark `0 d` launch/TLI as the current start event at reset and as completed after playback begins.
 
 ---
 
@@ -147,18 +158,17 @@ Each stage gets reviewed before the next starts — same process that worked for
 1. **V2 friction-lab** — done.
 2. **V2.5 physics-lab migration** — done.
 3. **V2.6 design + branding pass** — done.
-4. **Publish + get friend's reaction.** The lab is now in publishable shape (brand, theme, focus mode, favicon, footer credits all in place). Ship it, then let feedback shape what's next: more depth on stick-slip, more worlds for the rocket sim, more PDF sections, or a new shelf entirely.
-5. **Replace the GitHub footer placeholder** with the real repo URL once it exists. The href in the site-credits footer is currently `#`.
-6. **V3 solar-system** — Stage 3a is shipped, reviewed, and patched. Stage 3b is shipped, reviewed, and closure-gap-fixed. Start Stage 3c only with explicit approval.
+4. **V3 solar-system** — done.
+5. **Publish + get friend's reaction.** The lab is now in publishable shape (brand, theme, focus mode, favicon, footer credits, Rocket, Friction, and Solar all in place). Ship it, then let feedback shape what's next: Rocket polish, more depth on stick-slip, more worlds, more PDF sections, or a new shelf entirely.
 
 ---
 
 ## What to give Codex / any agent right now
 
-V2.5 and V2.6 are shipped, V3 Stage 3a is shipped/reviewed/patched, and V3 Stage 3b is shipped/reviewed/closure-gap-fixed. The next move is either publishing/gathering feedback or explicitly starting Stage 3c. If an agent needs to touch the repo outside that approval, the safe scopes are:
+V2.5, V2.6, and V3 are shipped. The next move is publishing/gathering feedback, or handling a clearly scoped post-publish fix. If an agent needs to touch the repo outside that feedback, the safe scopes are:
 
-- Swap the footer GitHub placeholder once the URL is known.
 - Bug fixes flagged by the friend after publish.
+- Solar UI polish that follows `docs/solar-ui-lessons.md`.
 - Small additions to existing sims (a new planet for rocket, a fourth tab for friction) — but only if they fit the existing patterns documented in AGENTS.md.
 
-Bigger work — a new shelf, a new sim, or Stage 3c — should still come back through this roadmap before any code is written.
+Bigger work — a new shelf, a new sim, or major V3 follow-up — should still come back through this roadmap before any code is written.
