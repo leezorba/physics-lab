@@ -1421,6 +1421,28 @@
         drawScene();
       }
 
+      // Parse a #rgb / #rrggbb token into channels. Returns null for the
+      // rgba()/color-mix tokens so callers can fall back to a flat fill.
+      function hexToRgb(hex) {
+        if (typeof hex !== "string" || hex[0] !== "#") return null;
+        let h = hex.slice(1);
+        if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+        if (h.length !== 6) return null;
+        const n = Number.parseInt(h, 16);
+        if (Number.isNaN(n)) return null;
+        return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+      }
+
+      // Blend a hex color toward white (amt > 0) or black (amt < 0).
+      function shade(color, amt) {
+        const rgb = hexToRgb(color);
+        if (!rgb) return color;
+        const target = amt < 0 ? 0 : 255;
+        const p = Math.min(1, Math.abs(amt));
+        const mix = (c) => Math.round(c + (target - c) * p);
+        return `rgb(${mix(rgb.r)}, ${mix(rgb.g)}, ${mix(rgb.b)})`;
+      }
+
       function drawCircle(view, center, radiusKm, color, options = {}) {
         const p = view.project(center);
         const radiusPx = Math.max(options.minPx ?? 0, radiusKm * view.scale);
@@ -1432,10 +1454,50 @@
         ctx.lineWidth = options.lineWidth ?? 1.2;
         ctx.strokeStyle = color;
         if (options.fill) {
-          ctx.fillStyle = color;
+          // Shaded sphere: a top-left-lit radial gradient gives the disk
+          // volume instead of reading as a flat sticker. Falls back to a
+          // flat fill for tiny disks or non-hex tokens. Threshold is 4 px
+          // so the Moon (≈4–5 px in the default Moon-mission system view)
+          // shades consistently with Earth beside it.
+          if (options.sphere && radiusPx >= 4) {
+            const hx = p[0] - radiusPx * 0.35;
+            const hy = p[1] - radiusPx * 0.35;
+            const grad = ctx.createRadialGradient(
+              hx, hy, radiusPx * 0.1,
+              p[0], p[1], radiusPx
+            );
+            grad.addColorStop(0, shade(color, 0.5));
+            grad.addColorStop(0.5, color);
+            grad.addColorStop(1, shade(color, -0.32));
+            ctx.fillStyle = grad;
+          } else {
+            ctx.fillStyle = color;
+          }
           ctx.fill();
         }
         if (options.stroke !== false) ctx.stroke();
+        ctx.restore();
+      }
+
+      // Soft additive glow behind the Sun so it reads as a light source.
+      function drawSunGlow(view, center, radiusKm, color) {
+        const p = view.project(center);
+        const radiusPx = radiusKm * view.scale;
+        const glow = radiusPx * 3.4;
+        if (!visiblePoint(p[0], p[1], glow + 20)) return;
+        const rgb = hexToRgb(color);
+        if (!rgb) return;
+        const grad = ctx.createRadialGradient(
+          p[0], p[1], radiusPx * 0.6,
+          p[0], p[1], glow
+        );
+        grad.addColorStop(0, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.32)`);
+        grad.addColorStop(1, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0)`);
+        ctx.save();
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(p[0], p[1], glow, 0, Math.PI * 2);
+        ctx.fill();
         ctx.restore();
       }
 
@@ -1477,21 +1539,22 @@
         if (viewMode === "system") {
           if (state.destination === "moon") {
             drawCircle(view, [0, 0], CONSTANTS.moon.orbitRadius, state.theme.rule, { stroke: true });
-            drawCircle(view, [0, 0], bodyRadius("earth", viewMode), state.theme.earth, { fill: true, stroke: false, minPx: bodyMinPx("earth", viewMode) });
+            drawCircle(view, [0, 0], bodyRadius("earth", viewMode), state.theme.earth, { fill: true, sphere: true, stroke: false, minPx: bodyMinPx("earth", viewMode) });
             drawLabel("Earth", [0, 0], view, state.theme.earth);
             const moon = bodyPosition("moon", state.missionTime);
-            drawCircle(view, moon, bodyRadius("moon", viewMode), state.theme.moon, { fill: true, stroke: false, minPx: bodyMinPx("moon", viewMode) });
+            drawCircle(view, moon, bodyRadius("moon", viewMode), state.theme.moon, { fill: true, sphere: true, stroke: false, minPx: bodyMinPx("moon", viewMode) });
             drawCircle(view, moon, CONSTANTS.moon.soi, state.theme.soi, { dash: [4, 7], lineWidth: 1 });
             drawLabel("Moon", moon, view, state.theme.moon);
           } else {
             drawCircle(view, [0, 0], CONSTANTS.earth.orbitRadius, state.theme.rule, { stroke: true });
             drawCircle(view, [0, 0], CONSTANTS[state.destination].orbitRadius, state.theme.rule, { stroke: true });
-            drawCircle(view, [0, 0], bodyRadius("sun", viewMode), state.theme.sun, { fill: true, stroke: false, minPx: bodyMinPx("sun", viewMode) });
+            drawSunGlow(view, [0, 0], bodyRadius("sun", viewMode), state.theme.sun);
+            drawCircle(view, [0, 0], bodyRadius("sun", viewMode), state.theme.sun, { fill: true, sphere: true, stroke: false, minPx: bodyMinPx("sun", viewMode) });
             drawLabel("Sun", [0, 0], view, state.theme.sun);
             const earth = bodyPosition("earth", state.missionTime);
             const target = bodyPosition(state.destination, state.missionTime);
-            drawCircle(view, earth, bodyRadius("earth", viewMode), state.theme.earth, { fill: true, stroke: false, minPx: bodyMinPx("earth", viewMode) });
-            drawCircle(view, target, bodyRadius(state.destination, viewMode), state.theme[state.destination], { fill: true, stroke: false, minPx: bodyMinPx(state.destination, viewMode) });
+            drawCircle(view, earth, bodyRadius("earth", viewMode), state.theme.earth, { fill: true, sphere: true, stroke: false, minPx: bodyMinPx("earth", viewMode) });
+            drawCircle(view, target, bodyRadius(state.destination, viewMode), state.theme[state.destination], { fill: true, sphere: true, stroke: false, minPx: bodyMinPx(state.destination, viewMode) });
             drawLabel("Earth", earth, view, state.theme.earth);
             drawLabel(TARGET_LABELS[state.destination], target, view, state.theme[state.destination]);
           }
@@ -1504,7 +1567,8 @@
             drawCircle(view, [0, 0], focus.soi, state.theme.soi, { dash: [5, 8], lineWidth: viewMode === "soi" ? 1.4 : 0.8 });
             drawCircle(view, [0, 0], focus.radius + PARKING_ALTITUDE, state.theme.rule, { dash: [3, 7], lineWidth: 1 });
           }
-          drawCircle(view, [0, 0], bodyRadius(focusKey, viewMode), color, { fill: true, stroke: false, minPx: bodyMinPx(focusKey, viewMode) });
+          if (focusKey === "sun") drawSunGlow(view, [0, 0], bodyRadius(focusKey, viewMode), color);
+          drawCircle(view, [0, 0], bodyRadius(focusKey, viewMode), color, { fill: true, sphere: true, stroke: false, minPx: bodyMinPx(focusKey, viewMode) });
           drawLabel(label, [0, 0], view, color);
         }
         ctx.restore();
@@ -1638,6 +1702,18 @@
         const [x, y] = view.project(point);
         if (!visiblePoint(x, y, 30)) return;
         ctx.save();
+        // Soft halo so the white marker is findable at full system scale
+        // without enlarging the dot itself (the dot stays a precise point).
+        const rgb = hexToRgb(state.theme.craft);
+        if (rgb) {
+          const glow = ctx.createRadialGradient(x, y, 1.5, x, y, 13);
+          glow.addColorStop(0, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.5)`);
+          glow.addColorStop(1, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0)`);
+          ctx.fillStyle = glow;
+          ctx.beginPath();
+          ctx.arc(x, y, 13, 0, Math.PI * 2);
+          ctx.fill();
+        }
         ctx.beginPath();
         ctx.arc(x, y, 4.5, 0, Math.PI * 2);
         ctx.fillStyle = state.theme.craft;
@@ -2281,17 +2357,29 @@
         drawScene();
       });
 
+      const missionGrid = document.querySelector(".mission-grid");
       document.getElementById("focusToggle").addEventListener("click", () => {
-        document.body.classList.toggle("sim-focus");
-        window.dispatchEvent(new Event("resize"));
+        if (missionGrid) missionGrid.classList.add("view-anim");
+        window.setTimeout(() => {
+          document.body.classList.toggle("sim-focus");
+          window.dispatchEvent(new Event("resize"));
+          if (missionGrid) missionGrid.classList.remove("view-anim");
+        }, 150);
       });
 
+      let themeFadeTimer = null;
       document.getElementById("themeToggle").addEventListener("click", () => {
         const cur = document.documentElement.dataset.theme;
         const next = cur === "light" ? "dark" : "light";
+        // Crossfade surface colors around the flip (rule in lab.css).
+        document.documentElement.classList.add("theme-transition");
         document.documentElement.dataset.theme = next;
         localStorage.setItem("physicsLabTheme", next);
         window.dispatchEvent(new CustomEvent("themechange", { detail: next }));
+        if (themeFadeTimer) window.clearTimeout(themeFadeTimer);
+        themeFadeTimer = window.setTimeout(() => {
+          document.documentElement.classList.remove("theme-transition");
+        }, 300);
       });
 
       setDwellSpeed(DEFAULT_SPEED_INDEX);

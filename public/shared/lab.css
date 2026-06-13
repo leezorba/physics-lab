@@ -37,6 +37,12 @@
   --canvas-rocket-body: #e8ecf3;
   --canvas-rocket-shade: #9aa3b8;
   --canvas-rocket-engine: #1f2940;
+  --canvas-block-fill: #f4b43f;
+  --canvas-block-edge: #ffd47a;
+  --canvas-block-shade: rgba(7, 17, 31, 0.35);
+  --canvas-spring: #63d6ff;
+  --canvas-chart-line: #f4b43f;
+  --canvas-meter-warn: #f4b43f;
   --solar-sun: #ffd47a;
   --solar-earth: #63d6ff;
   --solar-mars: #ff866a;
@@ -92,6 +98,12 @@
   --canvas-rocket-body: #f8fafc;
   --canvas-rocket-shade: #cbd5e1;
   --canvas-rocket-engine: #475467;
+  --canvas-block-fill: #f4b43f;
+  --canvas-block-edge: #b45309;
+  --canvas-block-shade: rgba(69, 26, 3, 0.22);
+  --canvas-spring: #1e3a8a;
+  --canvas-chart-line: #b45309;
+  --canvas-meter-warn: #b45309;
   --solar-sun: #b45309;
   --solar-earth: #1e3a8a;
   --solar-mars: #b42318;
@@ -697,6 +709,10 @@ textarea {
   border-radius: 999px;
   background: color-mix(in srgb, var(--green) 14%, transparent);
   color: var(--green);
+  transition:
+    border-color 200ms ease,
+    background 200ms ease,
+    color 200ms ease;
   font-family: var(--mono);
   font-size: 0.78rem;
   font-weight: 800;
@@ -1032,6 +1048,55 @@ footer.site-credits a:hover {
 .sim-stage,
 .sim-pane {
   position: relative;
+}
+
+/* Brief opacity dip used by sim pages while a layout swap happens
+   (tab switch, focus-mode toggle). The page adds .view-anim, performs
+   the swap, then removes the class so the new layout fades back in. */
+.workspace,
+.main-grid {
+  transition: opacity 150ms ease;
+}
+
+.workspace.view-anim,
+.main-grid.view-anim {
+  opacity: 0.25;
+}
+
+/* Theme crossfade: the theme toggle adds .theme-transition to <html>
+   for ~300ms around the data-theme flip so surfaces blend instead of
+   snapping. Canvas drawings still snap (they re-read tokens on the
+   themechange event); the dip is short enough that this reads fine. */
+html.theme-transition,
+html.theme-transition *,
+html.theme-transition *::before,
+html.theme-transition *::after {
+  transition:
+    background-color 240ms ease,
+    border-color 240ms ease,
+    color 240ms ease,
+    box-shadow 240ms ease !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  /* The .theme-transition crossfade above sets transition-duration with
+     !important at a higher specificity than the universal reset, so it
+     would otherwise still run under reduced motion. Match its specificity
+     here; being later in source order, this wins the cascade tiebreak. */
+  html.theme-transition,
+  html.theme-transition *,
+  html.theme-transition *::before,
+  html.theme-transition *::after {
+    transition-duration: 0.01ms !important;
+  }
 }
 
 .focus-toggle {

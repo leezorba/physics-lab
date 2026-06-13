@@ -152,6 +152,8 @@ No further V3 work unless post-publish feedback or the logged follow-up investig
 - Stage 3c timeline chips mark `0 d` launch/TLI as the current start event at reset and as completed after playback begins.
 - V3.1 follow-up: orbit-return and touch-return now include finite target/Moon SOI arrival and departure coast segments backed by MissionPlan data. The added segments have `deltaV = 0`; capture/departure burns keep the pre-V3.1 propulsive totals.
 - Post-V3 polish pass aligned Friction and Rocket UX with the lab-wide conventions captured in `AGENTS.md` → Lab-Wide UI Conventions, with sim-specific decisions documented in `docs/friction-ui-lessons.md` and `docs/rocket-ui-lessons.md`.
+- Pre-ship Rocket/Friction polish is complete: Rocket has stronger canvas immersion, visible Max-Q event feedback, launch-pad/ground cues, and documented visual limits; Friction Stick-Slip has a smooth fixed-coil spring and block-anchored force arrows. Durable details live in the per-sim lessons docs.
+- Polish pass across all three sims (graphics, UI, transitions, physics resolution). Shared: theme crossfade (`.theme-transition`), focus/tab opacity dip (`.view-anim`), and a `prefers-reduced-motion` reset, all in `lab.css`. **Friction physics changed** (flagged, not silent): stick-slip now integrates in 4 substeps for a smooth sawtooth, the artificial re-stick heuristic and `slipTime` were removed in favor of the correct `|F_spring| ≤ staticMax` re-stick condition (valid because `μ_k ≤ μ_s` is enforced), and position is stored in named meter-scale constants (`SLIDE_TRACK_M`, `INCLINE_SCALE_M`) mathematically equal to the old magic numbers. Friction also gained on-canvas load-meter bars, a slip-angle guide ray + θ arc, a hatched wall, full theme-token canvas colors, and a build-once/update-values telemetry path (no more 60 fps `innerHTML` churn). Rocket gained live thrust-to-weight + apogee tiles and Max-Q/apogee altitude markers (derived from existing state, no equation change). Solar got graphics-only depth (shaded body spheres, Sun glow, spacecraft halo) with no change to mission timing, path geometry, or the planner. Verified: all routes 200, both orbital gating harnesses still 16/16 in headless Chrome, all three sims initialize cleanly. Durable details live in the per-sim lessons docs.
 
 ---
 
@@ -161,7 +163,7 @@ No further V3 work unless post-publish feedback or the logged follow-up investig
 2. **V2.5 physics-lab migration** — done.
 3. **V2.6 design + branding pass** — done.
 4. **V3 solar-system** — done.
-5. **Publish + get friend's reaction.** The lab is now in publishable shape (brand, theme, focus mode, favicon, footer credits, Rocket, Friction, and Solar all in place). Ship it, then let feedback shape what's next: Rocket polish, more depth on stick-slip, more worlds, more PDF sections, or a new shelf entirely.
+5. **Publish + get friend's reaction.** The lab is now in publishable shape (brand, theme, focus mode, favicon, footer credits, Rocket, Friction, and Solar all in place, with the pre-ship Rocket/Friction polish folded in). Ship it, then let feedback shape what's next: more worlds, more PDF sections, deeper follow-up prompts, or a new shelf entirely.
 
 ---
 

@@ -165,12 +165,18 @@
       (function () {
         var btn = document.getElementById("themeToggle");
         if (!btn) return;
+        var fadeTimer = null;
         btn.addEventListener("click", function () {
           var cur = document.documentElement.dataset.theme;
           var next = cur === "light" ? "dark" : "light";
+          document.documentElement.classList.add("theme-transition");
           document.documentElement.dataset.theme = next;
           localStorage.setItem("physicsLabTheme", next);
           window.dispatchEvent(new CustomEvent("themechange", { detail: next }));
+          if (fadeTimer) window.clearTimeout(fadeTimer);
+          fadeTimer = window.setTimeout(function () {
+            document.documentElement.classList.remove("theme-transition");
+          }, 300);
         });
       })();
     </script>
