@@ -39,6 +39,25 @@ The UI should answer three beginner questions for every tab without requiring a 
 - **Spring stretch should be smooth, not re-counted.** The spring uses a fixed eight-coil sine-wave path with rounded line caps/joins. Do not derive the coil count from the current spring length; that makes new zigzags appear as the spring stretches and feels like geometry popping into existence.
 - **Force arrows originate on the block.** `F_s` starts near the spring attachment on the upper-right/upper-left face and points in the spring-force direction. `F_f` starts near the lower contact edge and points opposite the spring force. `F_n` starts at the top face. This keeps the arrows tied to the free-body diagram instead of floating in the spring or hovering off the block.
 
+## Physics Refinements (post-publish polish pass)
+
+These changed sim *behavior*, so they are recorded here per AGENTS.md → Physics Rules ("do not change physics silently — flag it").
+
+- **Substepped stick-slip integration.** `updateStick` now advances the spring in 4 fixed substeps per frame (`h = dt/4`) instead of one Euler step. At high `k` and low mass the spring period approaches the frame time, and a single step visibly distorted the slip arc (overshoot, jagged sawtooth). Substepping keeps `ω·h` small across the whole slider range so the sawtooth is smooth and physically shaped. No equation changed — only the integration resolution.
+- **Removed the artificial re-stick heuristic.** The old code re-stuck the block with a `slipTime > 0.08 && v <= driveSpeed && |springForce| < staticMax*0.88` fudge and a separate `slipTime` state field. With `μ_k ≤ μ_s` enforced, the slip arc always decelerates back through `v = 0`, and the block re-sticks exactly when the spring force at that instant can be held by static friction (`|springForce| ≤ staticMax`). That is the physically correct re-stick condition; the heuristic was masking the single-step integration error that substepping now fixes. `slipTime` is gone from state and defaults.
+- **Real-meter position scaling.** Sliding stores `m.x ∈ [0,1]` across a `SLIDE_TRACK_M = 5 m` track (`m.x += v·dt / SLIDE_TRACK_M`, identical to the old `v·dt·0.2`). Incline stores `m.s` with `INCLINE_SCALE_M = 1/0.12 ≈ 8.3 m` (`m.s -= v·dt / INCLINE_SCALE_M`, identical to the old `v·dt·0.12`). The constants are mathematically equivalent to the previous magic numbers; naming them lets the info panel report position in meters honestly.
+
+## On-Canvas Readouts
+
+- **Load meter bars in the info panel.** `infoPanel` lines may carry `bar: fraction`. Sliding shows breakaway % (`F / static max`), incline shows `tan θ / μ_s`, stick-slip shows spring load (`|F_s| / static max`). The bar fills green → amber → red as the fraction approaches 1, so the user sees how close the contact is to slipping without reading the number. Colors come from `--green` / `--canvas-meter-warn` / `--red`.
+- **Slip-angle guide ray + θ arc (incline).** A dashed ray at `atan(μ_s)` shows the slip threshold on the diagram; it turns red once the ramp tilts past it. A small arc at the base corner labels the current angle θ. These pin the "slip when `tan θ > μ_s`" lesson to the geometry instead of leaving it in the panel only.
+- **Hatched wall (sliding).** The right wall the block clamps against at `m.x = 1` gets diagonal hatching on its far side, the textbook convention for an immovable boundary. Reinforces that "AT WALL" is an expected stop.
+- **Canvas colors are theme tokens.** The block (gradient via `--canvas-block-fill/-edge/-shade`), spring (`--canvas-spring`), arrows, chart line (`--canvas-chart-line`), and meter colors all read from CSS tokens cached in `readTheme()` and re-cached on `themechange`. No hardcoded hex remains in the friction canvas code.
+
+## Telemetry Rendering
+
+- **Build once, update values per frame.** `buildTelemetry()` (called from `renderControls`) writes the tile DOM for the active tab and caches the `<strong>` nodes in `telemetryEls`; `renderTelemetry()` only updates their `textContent`. The old code rebuilt `grid.innerHTML` every animation frame — needless 60 fps DOM churn that also made values unselectable. The status pill re-applies its class only when the state key actually changes, and replays a short `pill-pop` scale animation on each real transition.
+
 ## Pause / Resume
 
 - **One pause button covers all three tabs.** Lives in the controls-card header next to reset, toggles `⏸` / `▶`. The animation loop skips `updatePhysics(dt)` when `state.paused` is true; render still runs so the canvas stays current.

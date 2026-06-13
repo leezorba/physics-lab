@@ -273,6 +273,12 @@
             >
           </div>
           <div class="telem-row">
+            <span class="telem-label">THRUST-TO-WEIGHT</span
+            ><span class="telem-value"
+              ><span id="twr-val">—</span></span
+            >
+          </div>
+          <div class="telem-row">
             <span class="telem-label">DYNAMIC PRESSURE (Q)</span
             ><span class="telem-value" id="q-val-wrap"
               ><span id="q-val">0</span><span class="telem-unit">Pa</span></span
@@ -289,6 +295,13 @@
             ><span class="telem-value"
               ><span id="f-val">100</span
               ><span class="telem-unit">%</span></span
+            >
+          </div>
+          <div class="telem-row">
+            <span class="telem-label">APOGEE (PEAK)</span
+            ><span class="telem-value amber"
+              ><span id="apogee-val">0</span
+              ><span class="telem-unit">m</span></span
             >
           </div>
           <div class="telem-row">
@@ -448,12 +461,15 @@
               <p>
                 <code>T+</code> is time since launch. The middle block shows
                 altitude, velocity, and acceleration in real time.
+                <code>Thrust-to-weight</code> is the lift ratio — below 1.0
+                (shown red) the rocket can't leave the pad.
                 <code>Q</code> (dynamic pressure) is the headline number — the
                 aerodynamic stress on the airframe. <code>Drag</code> is the
                 resulting force. <code>Fuel</code> ticks down to zero.
-                <code>MAX-Q (PEAK)</code> records the worst moment of stress
-                and the altitude where it happened — and stays after burnout
-                so you can read it.
+                <code>APOGEE (PEAK)</code> records the highest altitude
+                reached, and <code>MAX-Q (PEAK)</code> records the worst
+                moment of stress and the altitude where it happened — both
+                stay after burnout so you can read them.
               </p>
             </div>
             <div class="glossary-item">
@@ -510,7 +526,7 @@
             <p>
               This is why thick atmospheres (Venus) and high speeds (anywhere)
               both punish a rocket: each one pumps up that <code>½ρv²</code>
-              term. Toggle Educational mode to see the equation strip live.
+              term — the equation strip above the sliders shows it live.
             </p>
           </div>
         </div>
@@ -968,6 +984,9 @@
         maxQ: 0,
         maxQAlt: 0,
         maxQFlashUntil: 0,
+        apogee: 0, // peak altitude reached this run (m)
+        apogeeMarked: false, // set once the rocket starts descending
+        twr: 0, // live thrust-to-weight ratio while the engine burns
         history: [], // { t, h, v, q }
         hitMaxQ: false,
       };
@@ -993,6 +1012,13 @@
             b.classList.toggle("active", b.dataset.planet === key),
           );
         document.getElementById("planet-label").textContent = PLANETS[key].name;
+        // Brief fade so the world swap (sky, horizon, gravity panel) reads
+        // as a transition rather than a hard cut. The rule lives in lab.css.
+        const grid = document.querySelector(".main-grid");
+        if (grid) {
+          grid.classList.add("view-anim");
+          window.setTimeout(() => grid.classList.remove("view-anim"), 150);
+        }
         resetSim();
       }
 
@@ -1078,6 +1104,9 @@
         sim.maxQ = 0;
         sim.maxQAlt = 0;
         sim.maxQFlashUntil = 0;
+        sim.apogee = 0;
+        sim.apogeeMarked = false;
+        sim.twr = 0;
         sim.history = [];
         sim.hitMaxQ = false;
         document.getElementById("status-led").classList.remove("live");
@@ -1128,6 +1157,7 @@
         const p = PLANETS[currentPlanet];
         const flow = rocket.thrust / (rocket.Isp * 9.81);
         let q;
+        const vBefore = sim.v;
 
         if (sim.fuel > 0) {
           const dt_burn = Math.min(dt, sim.fuel / flow);
@@ -1139,6 +1169,23 @@
           }
         } else {
           q = integrateSubstep(dt, 0);
+        }
+
+        // Live thrust-to-weight ratio: T / (m·g(h)) while burning. TWR < 1
+        // means the engine can't lift the vehicle — it stays on the pad.
+        // Zero once fuel is gone (telemetry shows COAST then).
+        if (sim.fuel > 0) {
+          const m = rocket.m_dry + sim.fuel;
+          sim.twr = rocket.thrust / (m * gravity(sim.h));
+        } else {
+          sim.twr = 0;
+        }
+
+        // Apogee = peak altitude. Mark the turnover the first frame the
+        // rocket starts descending so the canvas can draw the apogee line.
+        if (sim.h > sim.apogee) sim.apogee = sim.h;
+        if (!sim.apogeeMarked && vBefore > 0 && sim.v <= 0 && sim.apogee > 0) {
+          sim.apogeeMarked = true;
         }
 
         // ground impact
@@ -1217,8 +1264,28 @@
           (sim.fuel / Math.max(1, rocket.m_fuel_initial)) *
           100
         ).toFixed(0);
+        $("apogee-val").textContent = fmt(sim.apogee);
         $("maxq-val").textContent = fmt(sim.maxQ);
         $("maxq-alt").textContent = fmt(sim.maxQAlt);
+
+        // TWR readout: live ratio while burning, COAST after fuel-out, and
+        // the standby liftoff ratio before launch (so the user can see at a
+        // glance whether the current build will even leave the pad).
+        const twrEl = $("twr-val");
+        if (sim.fuel <= 0 && (sim.running || sim.done)) {
+          twrEl.textContent = "COAST";
+        } else if (!sim.running && !sim.done) {
+          const liftoff =
+            rocket.thrust /
+            ((rocket.m_dry + rocket.m_fuel_initial) *
+              PLANETS[currentPlanet].g);
+          twrEl.textContent = liftoff.toFixed(2);
+          twrEl.style.color =
+            liftoff < 1 ? "var(--red)" : "";
+        } else {
+          twrEl.textContent = sim.twr.toFixed(2);
+          twrEl.style.color = sim.twr < 1 ? "var(--red)" : "";
+        }
       }
 
       // ============================================================
@@ -1338,6 +1405,42 @@
             spaceY - 4,
           );
         }
+
+        // Altitude event markers: where Max-Q happened (the headline
+        // aerodynamic-stress moment) and apogee once the rocket turns over.
+        // Both reinforce the physics by pinning the number to a height.
+        // dash differentiates the two markers even in light theme, where
+        // --amber and --cyan both collapse to the brand blue (the light
+        // palette intentionally flattens warm tones). Color carries the
+        // distinction in dark mode; dash carries it in both.
+        const altMarker = (alt, color, label, dash) => {
+          if (alt <= 0) return;
+          const y = ground_y - (alt / viewMaxAlt) * (ground_y - 20);
+          if (y <= 16 || y >= ground_y - 4) return;
+          ctx.save();
+          ctx.strokeStyle = color;
+          ctx.globalAlpha = 0.45;
+          ctx.setLineDash(dash);
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(w - 70, y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 0.95;
+          ctx.fillStyle = color;
+          ctx.font = "bold 11px JetBrains Mono";
+          ctx.textAlign = "left";
+          // Clear the top-left status panel (≈200×80) when the marker
+          // sits near the top of the canvas.
+          const labelX = y < paneY + paneH + 14 ? paneX + paneW + 12 : 16;
+          ctx.fillText(`${label} ${formatAlt(alt)}`, labelX, y - 4);
+          ctx.restore();
+        };
+        if (sim.maxQ > 100)
+          altMarker(sim.maxQAlt, theme.amber, "◂ MAX-Q ALT", [2, 5]);
+        if (sim.apogeeMarked)
+          altMarker(sim.apogee, theme.cyan, "◂ APOGEE", [9, 5]);
 
         // rocket
         const rocketY = ground_y - (sim.h / viewMaxAlt) * (ground_y - 20);
@@ -1933,20 +2036,31 @@
       (function () {
         var btn = document.getElementById("themeToggle");
         if (!btn) return;
+        var fadeTimer = null;
         btn.addEventListener("click", function () {
           var cur = document.documentElement.dataset.theme;
           var next = cur === "light" ? "dark" : "light";
+          document.documentElement.classList.add("theme-transition");
           document.documentElement.dataset.theme = next;
           localStorage.setItem("physicsLabTheme", next);
           window.dispatchEvent(new CustomEvent("themechange", { detail: next }));
+          if (fadeTimer) window.clearTimeout(fadeTimer);
+          fadeTimer = window.setTimeout(function () {
+            document.documentElement.classList.remove("theme-transition");
+          }, 300);
         });
       })();
       (function () {
         var btn = document.getElementById("focusToggle");
         if (!btn) return;
+        var grid = document.querySelector(".main-grid");
         btn.addEventListener("click", function () {
-          document.body.classList.toggle("sim-focus");
-          window.dispatchEvent(new Event("resize"));
+          if (grid) grid.classList.add("view-anim");
+          window.setTimeout(function () {
+            document.body.classList.toggle("sim-focus");
+            window.dispatchEvent(new Event("resize"));
+            if (grid) grid.classList.remove("view-anim");
+          }, 150);
         });
       })();
     </script>

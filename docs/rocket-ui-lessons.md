@@ -40,6 +40,14 @@ The ascent canvas is the focal point of the page, but a flat sky-gradient + grou
 
 Guardrail for future agents: keep canvas immersion procedural and physics-motivated. Cloud layers, weather, day/night cycles, full launch-tower silhouettes, and similar decorative elements were considered and rejected — they push past the schematic look the rest of the lab maintains. A low-profile pad is allowed because rockets visibly launch from and land on pads, and it anchors the 1D ascent without adding a tower scene.
 
+## Thrust-to-Weight + Apogee (post-publish polish pass)
+
+Two telemetry readouts and two canvas markers were added. No physics equation changed — both are derived from existing sim state, recorded here so the additions are documented.
+
+- **`THRUST-TO-WEIGHT` tile.** Live ratio `T / (m·g(h))` while the engine burns; at standby it shows the *liftoff* ratio `T / ((m_dry + m_fuel) · g₀)` so the user can see before launching whether the current build will even leave the pad. The value turns red below 1.0. After fuel-out it reads `COAST`. This is the "why won't it launch" number — a constant-thrust rocket with TWR < 1 never moves, and seeing it pre-launch turns a confusing dead pad into an obvious diagnosis.
+- **`APOGEE (PEAK)` tile.** Highest altitude reached this run, tracked as `max(apogee, h)` each step. Follows the lab-wide peak-value tile convention (like `MAX-Q (PEAK)`): it persists after burnout so the user can read the answer instead of catching the turnover mid-flight. Reset by `resetSim`.
+- **Canvas altitude markers.** `altMarker()` draws a faint dashed horizontal line at the Max-Q altitude (amber, once Max-Q is meaningful) and at apogee (cyan, once the rocket starts descending — `apogeeMarked` is set the first frame `v` crosses from positive to non-positive). Both labels clear the top-left gravity panel when near the top of the canvas. These pin the headline numbers to a height in the scene, the same way the TARGET (Kármán) line already does.
+
 ## Sim-Pane Layout
 
 Sim controls (Launch / Pause / Reset) sit inside `.sim-pane` directly below the canvas, not inside the `.controls` block at the bottom of the page. Burying flight controls below the sliders forced the user to scroll to launch and to reset, which broke the launch-watch-iterate loop.

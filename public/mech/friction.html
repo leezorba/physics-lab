@@ -116,6 +116,24 @@
         background: var(--surface-soft);
       }
 
+      /* Small scale pop re-triggered whenever the status pill changes
+         state (stuck → sliding → at wall …) so transitions register. */
+      .friction-page .status-pill.pill-pop {
+        animation: pill-pop 260ms ease;
+      }
+
+      @keyframes pill-pop {
+        0% {
+          transform: scale(0.92);
+        }
+        60% {
+          transform: scale(1.05);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+
       /* Two-column layout for narrative-heavy footer sections so text
          fills the box on full-screen instead of crowding into a single
          82ch column. Falls back to one column on narrow screens. The
@@ -653,6 +671,15 @@
           panelBg: get("--canvas-panel-bg"),
           panelBorder: get("--canvas-panel-border"),
           red: get("--red"),
+          green: get("--green"),
+          cyan: get("--cyan"),
+          violet: get("--violet"),
+          blockFill: get("--canvas-block-fill"),
+          blockEdge: get("--canvas-block-edge"),
+          blockShade: get("--canvas-block-shade"),
+          spring: get("--canvas-spring"),
+          chartLine: get("--canvas-chart-line"),
+          meterWarn: get("--canvas-meter-warn"),
         };
       }
       window.addEventListener("themechange", () => {
@@ -700,7 +727,6 @@
           xBlock: 0.04,
           vBlock: 0,
           mode: "stick",
-          slipTime: 0,
           elapsed: 0,
           visualCamera: 0,
           chart: [],
@@ -743,12 +769,19 @@
           xBlock: 0.04,
           vBlock: 0,
           mode: "stick",
-          slipTime: 0,
           elapsed: 0,
           visualCamera: 0,
           chart: [],
         },
       };
+
+      // World scale for the two travel tabs. The physics velocities are
+      // real m/s; positions are stored normalized, so these constants map
+      // them to meters. Sliding: m.x ∈ [0, 1] spans SLIDE_TRACK_M meters
+      // (the wall sits 5 m from the start). Incline: one s-unit along the
+      // ramp is INCLINE_SCALE_M meters (the rendered ramp is ~8.3 m).
+      const SLIDE_TRACK_M = 5;
+      const INCLINE_SCALE_M = 1 / 0.12;
 
       const controlConfig = {
         sliding: [
@@ -956,6 +989,8 @@
             model.stictionBoost = event.target.checked;
           });
         }
+
+        buildTelemetry();
       }
 
       function updateSliding(dt) {
@@ -969,16 +1004,23 @@
 
         if (m.x >= maxX) {
           m.x = maxX;
-          if (m.v > 0 || m.force > 0) {
-            // Capture peak before the wall zeroes it so the run's high
-            // water mark stays readable in telemetry after impact.
-            m.peakV = Math.max(m.peakV ?? 0, m.v);
-            // Stamp the impact frame on the chart so the curve drops
-            // visibly to zero at the wall.
-            m.elapsed = (m.elapsed ?? 0) + dt;
-            recordSlidingChart(m, 0);
-            m.v = 0;
-            m.status = "at wall";
+          if (m.status !== "at wall") {
+            if (m.v > 0 || m.force > 0) {
+              // Capture peak before the wall zeroes it so the run's high
+              // water mark stays readable in telemetry after impact.
+              m.peakV = Math.max(m.peakV ?? 0, m.v);
+              // Stamp the impact frame on the chart so the curve drops
+              // visibly to zero at the wall.
+              m.elapsed = (m.elapsed ?? 0) + dt;
+              recordSlidingChart(m, 0);
+              m.v = 0;
+              m.status = "at wall";
+              return;
+            }
+          } else if (m.force > 0) {
+            // Already parked against the wall: hold the clamp and keep
+            // the chart frozen — repeated v = 0 stamps would scroll the
+            // run history out of the 240-point window.
             return;
           }
         }
@@ -991,11 +1033,12 @@
           const net = m.force - kinetic;
           m.v = Math.max(0, m.v + (net / m.mass) * dt);
           m.peakV = Math.max(m.peakV ?? 0, m.v);
-          m.x = m.x + m.v * dt * 0.2;
+          m.x = m.x + (m.v * dt) / SLIDE_TRACK_M;
           m.elapsed = (m.elapsed ?? 0) + dt;
           recordSlidingChart(m, m.v);
           if (m.x >= maxX) {
             m.x = maxX;
+            recordSlidingChart(m, 0);
             m.v = 0;
             m.status = "at wall";
             return;
@@ -1033,14 +1076,20 @@
 
         if (m.s <= minS) {
           m.s = minS;
-          if (m.v > 0 || downSlope > 0) {
-            // Capture peak before the base zeroes it so the run's high
-            // water mark stays readable in telemetry after the stop.
-            m.peakV = Math.max(m.peakV ?? 0, m.v);
-            m.elapsed = (m.elapsed ?? 0) + dt;
-            recordInclineChart(m, 0);
-            m.v = 0;
-            m.status = "at base";
+          if (m.status !== "at base") {
+            if (m.v > 0 || downSlope > 0) {
+              // Capture peak before the base zeroes it so the run's high
+              // water mark stays readable in telemetry after the stop.
+              m.peakV = Math.max(m.peakV ?? 0, m.v);
+              m.elapsed = (m.elapsed ?? 0) + dt;
+              recordInclineChart(m, 0);
+              m.v = 0;
+              m.status = "at base";
+              return;
+            }
+          } else if (downSlope > 0) {
+            // Parked at the ramp base: hold the clamp and keep the chart
+            // frozen instead of re-stamping zeros every frame.
             return;
           }
         }
@@ -1056,11 +1105,12 @@
           m.v = Math.max(0, m.v + (net / m.mass) * dt);
           m.peakV = Math.max(m.peakV ?? 0, m.v);
           // Block slides down the ramp: m.s = 0 is base, m.s = 1 is top.
-          m.s -= m.v * dt * 0.12;
+          m.s -= (m.v * dt) / INCLINE_SCALE_M;
           m.elapsed = (m.elapsed ?? 0) + dt;
           recordInclineChart(m, m.v);
           if (m.s <= minS) {
             m.s = minS;
+            recordInclineChart(m, 0);
             m.v = 0;
             m.status = "at base";
             return;
@@ -1083,42 +1133,40 @@
         const fn = m.mass * state.gravity;
         const staticMax = effectiveMuS * fn;
         const kinetic = m.muK * fn;
-        const driveSpeed = m.driveVelocity;
+
+        // Substep the spring integration: at high k and low mass the
+        // spring period approaches the frame time, and a single Euler
+        // step visibly distorts the slip arc. Four substeps keep ω·h
+        // small across the whole slider range.
+        const steps = 4;
+        const h = dt / steps;
+        for (let i = 0; i < steps; i++) {
+          m.xDrive += m.driveVelocity * h;
+          let springForce = m.k * (m.xDrive - m.xBlock);
+
+          if (m.mode === "stick") {
+            m.vBlock = 0;
+            if (springForce > staticMax) m.mode = "slip";
+          }
+
+          if (m.mode === "slip") {
+            // Kinetic friction opposes the forward slip while moving.
+            const acceleration = (springForce - kinetic) / m.mass;
+            m.vBlock = Math.max(0, m.vBlock + acceleration * h);
+            m.xBlock += m.vBlock * h;
+
+            // Re-stick exactly at the zero-velocity crossing — but only
+            // if static friction can actually hold the remaining spring
+            // force. With μ_k ≤ μ_s the slip arc always returns to v = 0,
+            // so the cycle needs no artificial restick heuristic.
+            springForce = m.k * (m.xDrive - m.xBlock);
+            if (m.vBlock === 0 && Math.abs(springForce) <= staticMax) {
+              m.mode = "stick";
+            }
+          }
+        }
 
         m.elapsed += dt;
-        m.xDrive += driveSpeed * dt;
-
-        let springForce = m.k * (m.xDrive - m.xBlock);
-
-        if (m.mode === "stick") {
-          m.vBlock = 0;
-          if (springForce > staticMax) {
-            m.mode = "slip";
-            m.slipTime = 0;
-          }
-        }
-
-        if (m.mode === "slip") {
-          m.slipTime += dt;
-          springForce = m.k * (m.xDrive - m.xBlock);
-          const friction = kinetic;
-          const acceleration = (springForce - friction) / m.mass;
-          m.vBlock = Math.max(0, m.vBlock + acceleration * dt);
-          m.xBlock += m.vBlock * dt;
-
-          springForce = m.k * (m.xDrive - m.xBlock);
-          if (m.vBlock === 0 && Math.abs(springForce) <= staticMax) {
-            m.mode = "stick";
-          } else if (
-            m.slipTime > 0.08 &&
-            m.vBlock <= driveSpeed &&
-            Math.abs(springForce) < staticMax * 0.88
-          ) {
-            m.mode = "stick";
-            m.vBlock = 0;
-          }
-        }
-
         m.chart.push({ t: m.elapsed, v: m.vBlock });
         if (m.chart.length > 220) m.chart.shift();
 
@@ -1198,7 +1246,9 @@
 
       // Render a small framed info pill in the top-left of the sim canvas.
       // Visually anchors readouts to the diagram instead of letting them
-      // float against the background.
+      // float against the background. A line may carry `bar: fraction`
+      // (0..1+) — it then renders a threshold meter under the text that
+      // shifts green → amber → red as the fraction approaches 1.
       function infoPanel(context, x, y, lines) {
         if (!lines.length) return;
         context.save();
@@ -1213,8 +1263,10 @@
         const padX = 14;
         const padY = 12;
         const lineH = 22;
-        const pillW = Math.ceil(maxW + padX * 2);
-        const pillH = lines.length * lineH + padY * 2;
+        const barH = 14;
+        const rows = lines.map((line) => lineH + (line.bar != null ? barH : 0));
+        const pillW = Math.ceil(Math.max(maxW, 150) + padX * 2);
+        const pillH = rows.reduce((sum, h) => sum + h, 0) + padY * 2;
 
         context.fillStyle = theme.panelBg;
         context.strokeStyle = theme.panelBorder;
@@ -1224,24 +1276,51 @@
         context.fill();
         context.stroke();
 
+        let cursorY = y + padY;
         for (let i = 0; i < lines.length; i++) {
           context.fillStyle = lines[i].color || theme.text;
-          const ty = y + padY + i * lineH + 14;
-          context.fillText(lines[i].text, x + padX, ty);
+          context.fillText(lines[i].text, x + padX, cursorY + 14);
+          if (lines[i].bar != null) {
+            const frac = clamp(lines[i].bar, 0, 1);
+            const trackW = pillW - padX * 2;
+            const trackY = cursorY + lineH + 1;
+            context.fillStyle = theme.rule;
+            context.beginPath();
+            context.roundRect(x + padX, trackY, trackW, 7, 4);
+            context.fill();
+            if (frac > 0.01) {
+              context.fillStyle =
+                lines[i].bar < 0.7
+                  ? theme.green
+                  : lines[i].bar < 0.97
+                    ? theme.meterWarn
+                    : theme.red;
+              context.beginPath();
+              context.roundRect(x + padX, trackY, trackW * frac, 7, 4);
+              context.fill();
+            }
+          }
+          cursorY += rows[i];
         }
         context.restore();
       }
 
-      function drawBlock(context, x, y, w, h, color = "#f4b43f") {
+      function drawBlock(context, x, y, w, h) {
         context.save();
-        context.fillStyle = color;
-        context.strokeStyle = "#ffd47a";
+        // Slight top-lit gradient gives the block a hint of volume while
+        // staying schematic. All colors come from the canvas theme tokens.
+        const grad = context.createLinearGradient(0, y, 0, y + h);
+        grad.addColorStop(0, theme.blockEdge);
+        grad.addColorStop(0.22, theme.blockFill);
+        grad.addColorStop(1, theme.blockFill);
+        context.fillStyle = grad;
+        context.strokeStyle = theme.blockEdge;
         context.lineWidth = 2;
         context.beginPath();
         context.roundRect(x, y, w, h, 6);
         context.fill();
         context.stroke();
-        context.fillStyle = "rgba(7, 17, 31, 0.35)";
+        context.fillStyle = theme.blockShade;
         context.fillRect(x + 8, y + 10, w - 16, 6);
         context.restore();
       }
@@ -1275,8 +1354,17 @@
 
         // Wall the block clamps against at m.x = 1. Drawn so the
         // "AT WALL" stop feels expected, not magic. Right edge of the
-        // block at maxX sits at leftPad + travel + blockW.
+        // block at maxX sits at leftPad + travel + blockW. Hatching on
+        // the far side marks it as immovable, textbook-diagram style.
         const wallX = leftPad + travel + blockW;
+        ctx.strokeStyle = theme.rule;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let hy = groundY - 88; hy < groundY; hy += 12) {
+          ctx.moveTo(wallX, hy + 12);
+          ctx.lineTo(wallX + 11, hy);
+        }
+        ctx.stroke();
         ctx.strokeStyle = theme.groundLine;
         ctx.lineWidth = 4;
         ctx.beginPath();
@@ -1309,7 +1397,7 @@
           blockY + blockH * 0.42,
           blockX + blockW + appliedLen,
           blockY + blockH * 0.42,
-          "#68e391",
+          theme.green,
           "F",
         );
         arrow(
@@ -1318,7 +1406,7 @@
           blockY + blockH * 0.68,
           blockX - frictionLen,
           blockY + blockH * 0.68,
-          "#ff6d6d",
+          theme.red,
           "F_f",
         );
         arrow(
@@ -1327,7 +1415,7 @@
           blockY - 12,
           blockX + blockW * 0.52,
           blockY - 70,
-          "#63d6ff",
+          theme.cyan,
           "F_n",
         );
         arrow(
@@ -1336,13 +1424,20 @@
           blockY + blockH + 8,
           blockX + blockW * 0.38,
           blockY + blockH + 70,
-          "#a98bff",
+          theme.violet,
           "m·g",
         );
 
         infoPanel(ctx, 16, 16, [
           { text: `static max ${fmt(staticMax, 1)} N` },
           { text: `kinetic friction ${fmt(kinetic, 1)} N` },
+          {
+            text: `position ${fmt(m.x * SLIDE_TRACK_M, 2)} / ${fmt(SLIDE_TRACK_M, 1)} m`,
+          },
+          {
+            text: `breakaway ${fmt(clamp((m.force / Math.max(0.001, staticMax)) * 100, 0, 999), 0)}%`,
+            bar: m.force / Math.max(0.001, staticMax),
+          },
         ]);
       }
 
@@ -1368,6 +1463,35 @@
 
         ctx.fillStyle = theme.bg;
         ctx.fillRect(0, 0, width, height);
+
+        // Dashed guide ray at the slip angle atan(μ_s): the block slips
+        // the moment the ramp tilts past this line, so the threshold is
+        // visible on the diagram instead of living only in the panel.
+        const slipRad = Math.atan(m.muS);
+        const guideLen = Math.min(rampLen * 0.9, 360);
+        const pastSlip = m.angle >= threshold;
+        ctx.save();
+        ctx.setLineDash([6, 7]);
+        ctx.strokeStyle = pastSlip ? theme.red : theme.textDim;
+        ctx.globalAlpha = 0.7;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(baseX, baseY);
+        ctx.lineTo(
+          baseX + guideLen * Math.cos(slipRad),
+          baseY - guideLen * Math.sin(slipRad),
+        );
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.font = "700 11px JetBrains Mono, monospace";
+        ctx.fillStyle = pastSlip ? theme.red : theme.textDim;
+        ctx.fillText(
+          "slip angle",
+          baseX + guideLen * Math.cos(slipRad) + 8,
+          baseY - guideLen * Math.sin(slipRad) + 4,
+        );
+        ctx.restore();
+
         ctx.strokeStyle = theme.groundLine;
         ctx.lineWidth = 5;
         ctx.beginPath();
@@ -1382,6 +1506,25 @@
         ctx.lineTo(endX, endY);
         ctx.stroke();
 
+        // θ arc between the floor and the ramp at the base corner.
+        ctx.save();
+        ctx.strokeStyle = theme.text;
+        ctx.globalAlpha = 0.75;
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.arc(baseX, baseY, 54, -angleRad, 0);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = theme.text;
+        ctx.font = "700 13px JetBrains Mono, monospace";
+        const midAngle = angleRad / 2;
+        ctx.fillText(
+          "θ",
+          baseX + 68 * Math.cos(midAngle) - 4,
+          baseY - 68 * Math.sin(midAngle) + 5,
+        );
+        ctx.restore();
+
         ctx.save();
         ctx.translate(blockX, blockY);
         ctx.rotate(-angleRad);
@@ -1390,14 +1533,14 @@
 
         const centerX = blockX;
         const centerY = blockY - 19;
-        arrow(ctx, centerX, centerY, centerX, centerY + 92, "#a98bff", "m·g");
+        arrow(ctx, centerX, centerY, centerX, centerY + 92, theme.violet, "m·g");
         arrow(
           ctx,
           centerX,
           centerY,
           centerX + 80 * Math.sin(angleRad),
           centerY - 80 * Math.cos(angleRad),
-          "#63d6ff",
+          theme.cyan,
           "F_n",
         );
         arrow(
@@ -1406,7 +1549,7 @@
           centerY,
           centerX + 92 * Math.cos(angleRad),
           centerY - 92 * Math.sin(angleRad),
-          "#68e391",
+          theme.green,
           "parallel",
         );
         arrow(
@@ -1415,7 +1558,7 @@
           centerY,
           centerX - 70 * Math.cos(angleRad),
           centerY + 70 * Math.sin(angleRad),
-          "#ff6d6d",
+          theme.red,
           "F_f",
         );
 
@@ -1424,6 +1567,13 @@
           {
             text: `current θ = ${fmt(m.angle, 1)}°`,
             color: m.angle >= threshold ? theme.red : theme.text,
+          },
+          {
+            text: `slid ${fmt(Math.max(0, (0.92 - m.s) * INCLINE_SCALE_M), 2)} m down-slope`,
+          },
+          {
+            text: `tan θ / μ_s · ${fmt(clamp((Math.tan(angleRad) / Math.max(0.001, m.muS)) * 100, 0, 999), 0)}%`,
+            bar: Math.tan(angleRad) / Math.max(0.001, m.muS),
           },
         ]);
       }
@@ -1439,7 +1589,7 @@
         const amplitude = clamp(coilLength / 26, 4, 10);
 
         context.save();
-        context.strokeStyle = "#63d6ff";
+        context.strokeStyle = theme.spring;
         context.lineWidth = 3;
         context.lineCap = "round";
         context.lineJoin = "round";
@@ -1500,7 +1650,7 @@
         ctx.stroke();
 
         // Drive anchor on the right (the spring's fixed end).
-        ctx.fillStyle = "#63d6ff";
+        ctx.fillStyle = theme.spring;
         ctx.fillRect(driveX - 5, blockY - 10, 10, blockH + 20);
         drawSpring(ctx, blockX + blockW, springY, driveX - 5, springY);
         drawBlock(ctx, blockX, blockY, blockW, blockH);
@@ -1520,7 +1670,7 @@
           blockY,
           blockX + blockW * 0.5,
           blockY - 64,
-          "#63d6ff",
+          theme.cyan,
           "F_n",
         );
 
@@ -1536,7 +1686,7 @@
           springArrowY,
           springStartX + springDir * springLen,
           springArrowY,
-          "#68e391",
+          theme.green,
           "F_s",
         );
 
@@ -1556,7 +1706,7 @@
           frictionY,
           frictionStartX + frictionDir * frictionLen,
           frictionY,
-          "#ff6d6d",
+          theme.red,
           "F_f",
         );
 
@@ -1570,6 +1720,10 @@
           },
           { text: `drive velocity ${fmt(m.driveVelocity, 2)} m/s` },
           { text: `spring stretch ${fmt(m.xDrive - m.xBlock, 2)} m` },
+          {
+            text: `spring load ${fmt(clamp((Math.abs(springForce) / Math.max(0.001, staticMax)) * 100, 0, 999), 0)}% of static max`,
+            bar: Math.abs(springForce) / Math.max(0.001, staticMax),
+          },
         ]);
       }
 
@@ -1612,16 +1766,67 @@
         const maxV = Math.max(0.05, ...data.map((p) => p.v));
         const tMin = data[0].t;
         const tSpan = Math.max(0.001, data[data.length - 1].t - tMin);
-        chartCtx.strokeStyle = "#f4b43f";
+        const px = (point) => ((point.t - tMin) / tSpan) * (width - 32) + 16;
+        const py = (v) => height - 18 - (v / maxV) * (height - 52);
+
+        // Drive-velocity reference on the stick-slip chart: the slip arcs
+        // oscillate around this line, which is the visual heart of the
+        // stick-slip lesson (block average speed = drive speed).
+        if (state.tab === "stick") {
+          const vDrive = state.stick.driveVelocity;
+          if (vDrive <= maxV * 1.02) {
+            const yDrive = py(Math.min(vDrive, maxV));
+            chartCtx.save();
+            chartCtx.setLineDash([4, 5]);
+            chartCtx.strokeStyle = theme.textDim;
+            chartCtx.lineWidth = 1;
+            chartCtx.beginPath();
+            chartCtx.moveTo(16, yDrive);
+            chartCtx.lineTo(width - 16, yDrive);
+            chartCtx.stroke();
+            chartCtx.setLineDash([]);
+            chartCtx.fillStyle = theme.textDim;
+            chartCtx.font = "700 10px JetBrains Mono";
+            chartCtx.fillText("v_drive", 18, yDrive - 4);
+            chartCtx.restore();
+          }
+        }
+
+        // Soft fill under the curve so the run reads as an area, not a wire.
+        chartCtx.save();
+        chartCtx.globalAlpha = 0.13;
+        chartCtx.fillStyle = theme.chartLine;
+        chartCtx.beginPath();
+        chartCtx.moveTo(px(data[0]), py(0));
+        data.forEach((point) => chartCtx.lineTo(px(point), py(point.v)));
+        chartCtx.lineTo(px(data[data.length - 1]), py(0));
+        chartCtx.closePath();
+        chartCtx.fill();
+        chartCtx.restore();
+
+        chartCtx.strokeStyle = theme.chartLine;
         chartCtx.lineWidth = 2;
         chartCtx.beginPath();
         data.forEach((point, index) => {
-          const x = ((point.t - tMin) / tSpan) * (width - 32) + 16;
-          const y = height - 18 - (point.v / maxV) * (height - 52);
+          const x = px(point);
+          const y = py(point.v);
           if (index === 0) chartCtx.moveTo(x, y);
           else chartCtx.lineTo(x, y);
         });
         chartCtx.stroke();
+
+        // Impact stamp: sliding/incline freeze the chart with a final
+        // v = 0 point at the wall/base — mark it so the drop reads as
+        // the stop event rather than a rendering glitch.
+        const last = data[data.length - 1];
+        if (state.tab !== "stick" && last.v === 0 && data.length > 2) {
+          chartCtx.save();
+          chartCtx.fillStyle = theme.red;
+          chartCtx.beginPath();
+          chartCtx.arc(px(last), py(0), 3.5, 0, Math.PI * 2);
+          chartCtx.fill();
+          chartCtx.restore();
+        }
 
         chartCtx.fillStyle = theme.textDim;
         chartCtx.font = "700 11px JetBrains Mono";
@@ -1629,81 +1834,156 @@
         chartCtx.fillText(`${fmt(tSpan, 2)} s`, width - 124, height - 14);
       }
 
-      function renderTelemetry() {
-        const grid = document.getElementById("telemetryGrid");
-        const pill = document.getElementById("statusPill");
-        let rows = [];
-        let status = "Stuck";
-        let className = "status-pill";
+      // Telemetry tiles are built once per tab (buildTelemetry) and only
+      // their values update per frame. Rebuilding the grid's innerHTML at
+      // 60 fps caused needless DOM churn and made values unselectable.
+      const telemetrySpec = {
+        sliding: [
+          {
+            label: "F_n",
+            value: () => `${fmt(state.sliding.mass * state.gravity, 1)} N`,
+          },
+          {
+            label: "Static max",
+            value: () =>
+              `${fmt(state.sliding.muS * state.sliding.mass * state.gravity, 1)} N`,
+          },
+          {
+            label: "F_f",
+            value: () => {
+              const m = state.sliding;
+              const fn = m.mass * state.gravity;
+              const staticMax = m.muS * fn;
+              const friction =
+                m.status === "sliding"
+                  ? m.muK * fn
+                  : Math.min(m.force, staticMax);
+              return `${fmt(friction, 1)} N`;
+            },
+          },
+          { label: "Velocity", value: () => `${fmt(state.sliding.v, 2)} m/s` },
+          {
+            label: "Peak v",
+            cls: "peak",
+            value: () => `${fmt(state.sliding.peakV ?? 0, 2)} m/s`,
+          },
+        ],
+        incline: [
+          {
+            label: "F_n",
+            value: () => {
+              const m = state.incline;
+              const rad = (m.angle * Math.PI) / 180;
+              return `${fmt(m.mass * state.gravity * Math.cos(rad), 1)} N`;
+            },
+          },
+          {
+            label: "m·g·sinθ",
+            value: () => {
+              const m = state.incline;
+              const rad = (m.angle * Math.PI) / 180;
+              return `${fmt(m.mass * state.gravity * Math.sin(rad), 1)} N`;
+            },
+          },
+          {
+            label: "Slip angle",
+            value: () =>
+              `${fmt((Math.atan(state.incline.muS) * 180) / Math.PI, 1)}°`,
+          },
+          { label: "Velocity", value: () => `${fmt(state.incline.v, 2)} m/s` },
+          {
+            label: "Peak v",
+            cls: "peak",
+            value: () => `${fmt(state.incline.peakV ?? 0, 2)} m/s`,
+          },
+        ],
+        stick: [
+          {
+            label: "F_n",
+            value: () => `${fmt(state.stick.mass * state.gravity, 1)} N`,
+          },
+          {
+            label: "F_spring",
+            value: () => {
+              const m = state.stick;
+              return `${fmt(m.k * (m.xDrive - m.xBlock), 1)} N`;
+            },
+          },
+          {
+            label: "μ_s effective",
+            value: () =>
+              fmt(state.stick.muS * (state.stick.stictionBoost ? 1.45 : 1), 2),
+          },
+          { label: "v_block", value: () => `${fmt(state.stick.vBlock, 2)} m/s` },
+        ],
+      };
 
+      let telemetryEls = [];
+      let lastPillKey = "";
+
+      function pillState() {
         if (state.tab === "sliding") {
           const m = state.sliding;
-          const fn = m.mass * state.gravity;
-          const staticMax = m.muS * fn;
-          const friction =
-            m.status === "sliding"
-              ? m.muK * fn
-              : Math.min(m.force, staticMax);
-          status = m.status;
-          className += m.status === "sliding" ? " sliding" : "";
-          const peakV = m.peakV ?? 0;
-          rows = [
-            ["F_n", `${fmt(fn, 1)} N`],
-            ["Static max", `${fmt(staticMax, 1)} N`],
-            ["F_f", `${fmt(friction, 1)} N`],
-            ["Velocity", `${fmt(m.v, 2)} m/s`],
-            ["Peak v", `${fmt(peakV, 2)} m/s`, "peak"],
-          ];
+          return {
+            status: m.status,
+            className:
+              "status-pill" + (m.status === "sliding" ? " sliding" : ""),
+          };
         }
-
         if (state.tab === "incline") {
           const m = state.incline;
-          const rad = (m.angle * Math.PI) / 180;
-          const fn = m.mass * state.gravity * Math.cos(rad);
-          const parallel = m.mass * state.gravity * Math.sin(rad);
-          const threshold = (Math.atan(m.muS) * 180) / Math.PI;
-          status = m.status;
-          className +=
-            m.status === "sliding"
-              ? " sliding"
-              : m.status === "near slip"
-                ? " near"
-                : "";
-          const peakV = m.peakV ?? 0;
-          rows = [
-            ["F_n", `${fmt(fn, 1)} N`],
-            ["m·g·sinθ", `${fmt(parallel, 1)} N`],
-            ["Slip angle", `${fmt(threshold, 1)}°`],
-            ["Velocity", `${fmt(m.v, 2)} m/s`],
-            ["Peak v", `${fmt(peakV, 2)} m/s`, "peak"],
-          ];
+          return {
+            status: m.status,
+            className:
+              "status-pill" +
+              (m.status === "sliding"
+                ? " sliding"
+                : m.status === "near slip"
+                  ? " near"
+                  : ""),
+          };
         }
+        const slipping = state.stick.mode === "slip";
+        return {
+          status: slipping ? "slipping" : "sticking",
+          className: "status-pill" + (slipping ? " slipping" : ""),
+        };
+      }
 
-        if (state.tab === "stick") {
-          const m = state.stick;
-          const effectiveMuS = m.muS * (m.stictionBoost ? 1.45 : 1);
-          const fn = m.mass * state.gravity;
-          const springForce = m.k * (m.xDrive - m.xBlock);
-          status = m.mode === "slip" ? "slipping" : "sticking";
-          className += m.mode === "slip" ? " slipping" : "";
-          rows = [
-            ["F_n", `${fmt(fn, 1)} N`],
-            ["F_spring", `${fmt(springForce, 1)} N`],
-            ["μ_s effective", fmt(effectiveMuS, 2)],
-            ["v_block", `${fmt(m.vBlock, 2)} m/s`],
-          ];
-        }
-
-        pill.className = className;
-        pill.textContent = status;
-        grid.innerHTML = rows
+      function buildTelemetry() {
+        const grid = document.getElementById("telemetryGrid");
+        grid.innerHTML = telemetrySpec[state.tab]
           .map(
-            ([label, value, extraClass]) => {
-              const cls = extraClass ? `telemetry ${extraClass}` : "telemetry";
-              return `<div class="${cls}"><span>${label}</span><strong>${value}</strong></div>`;
-            },
+            (row) =>
+              `<div class="telemetry${row.cls ? ` ${row.cls}` : ""}"><span>${row.label}</span><strong></strong></div>`,
           )
           .join("");
+        telemetryEls = Array.from(grid.querySelectorAll("strong"));
+        // Prime the pill without the pop animation so loading a tab
+        // doesn't read as a state change.
+        const pill = document.getElementById("statusPill");
+        const next = pillState();
+        lastPillKey = `${next.className}|${next.status}`;
+        pill.className = next.className;
+        pill.textContent = next.status;
+      }
+
+      function renderTelemetry() {
+        const rows = telemetrySpec[state.tab];
+        for (let i = 0; i < rows.length; i++) {
+          telemetryEls[i].textContent = rows[i].value();
+        }
+        const next = pillState();
+        const key = `${next.className}|${next.status}`;
+        if (key !== lastPillKey) {
+          lastPillKey = key;
+          const pill = document.getElementById("statusPill");
+          pill.className = next.className;
+          pill.textContent = next.status;
+          // Restart the pop animation on every state change.
+          void pill.offsetWidth;
+          pill.classList.add("pill-pop");
+        }
       }
 
       function render() {
@@ -1785,15 +2065,23 @@
           setGravity("Custom", event.target.value, true);
         });
 
+      const workspaceEl = document.querySelector(".workspace");
       document.querySelectorAll(".tab-button").forEach((button) => {
         button.addEventListener("click", () => {
-          state.tab = button.dataset.tab;
+          if (state.tab === button.dataset.tab) return;
           document
             .querySelectorAll(".tab-button")
             .forEach((item) =>
               item.classList.toggle("active", item === button),
             );
-          renderControls();
+          // Brief opacity dip so the canvas/controls swap reads as a
+          // transition instead of a hard cut (rule lives in lab.css).
+          workspaceEl.classList.add("view-anim");
+          window.setTimeout(() => {
+            state.tab = button.dataset.tab;
+            renderControls();
+            workspaceEl.classList.remove("view-anim");
+          }, 150);
         });
       });
 
@@ -1870,22 +2158,36 @@
       (function () {
         var btn = document.getElementById("themeToggle");
         if (!btn) return;
+        var fadeTimer = null;
         btn.addEventListener("click", function () {
           var cur = document.documentElement.dataset.theme;
           var next = cur === "light" ? "dark" : "light";
+          // .theme-transition (lab.css) crossfades surface colors around
+          // the flip instead of snapping.
+          document.documentElement.classList.add("theme-transition");
           document.documentElement.dataset.theme = next;
           localStorage.setItem("physicsLabTheme", next);
           window.dispatchEvent(new CustomEvent("themechange", { detail: next }));
+          if (fadeTimer) window.clearTimeout(fadeTimer);
+          fadeTimer = window.setTimeout(function () {
+            document.documentElement.classList.remove("theme-transition");
+          }, 300);
         });
       })();
       (function () {
         var btn = document.getElementById("focusToggle");
         if (!btn) return;
+        var workspace = document.querySelector(".workspace");
         btn.addEventListener("click", function () {
-          document.body.classList.toggle("sim-focus");
-          // Force the canvases to recompute their pixel size for the new
-          // column layout. Both sim and chart canvases listen for resize.
-          window.dispatchEvent(new Event("resize"));
+          // Dip the workspace, swap the layout mid-dip, then fade back in.
+          if (workspace) workspace.classList.add("view-anim");
+          window.setTimeout(function () {
+            document.body.classList.toggle("sim-focus");
+            // Force the canvases to recompute their pixel size for the new
+            // column layout. Both sim and chart canvases listen for resize.
+            window.dispatchEvent(new Event("resize"));
+            if (workspace) workspace.classList.remove("view-anim");
+          }, 150);
         });
       })();
     </script>

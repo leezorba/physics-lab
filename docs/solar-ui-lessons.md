@@ -70,6 +70,19 @@ Avoid rapid text churn around every small internal event. The right side can sho
 
 When a view auto-switches, the status strip must agree with the view. For example, during the brief SOI approach, do not say System view is clearest; explain that the sim is auto-fitting the target and spacecraft for the upcoming handoff.
 
+## Graphics Polish (post-publish pass)
+
+A graphics-only pass added depth without touching mission timing, path geometry, autoZoom, or the planner. The 32 gating tests are unaffected by design.
+
+- **Shaded body spheres.** `drawCircle` takes a `sphere: true` option that fills the disk with a top-left-lit radial gradient (`shade(color, +0.5)` highlight → base → `shade(color, -0.32)` terminator) instead of a flat sticker. It only triggers for disks ≥ 5 px and falls back to a flat fill otherwise. `shade()` returns the original string for non-hex tokens, so it is only ever applied to the hex body-color tokens (`--solar-earth/-mars/-venus/-moon/-sun/-spacecraft`), never to the `rgba()` SOI/rule tokens.
+- **Sun glow.** `drawSunGlow` draws a soft additive radial halo behind the Sun disk in System view (and Local view when the Sun is the focus body) so it reads as a light source. Purely decorative; no physics meaning.
+- **Spacecraft halo.** `drawCraft` draws a faint radial glow under the white marker so the eye can find it at full System scale. The marker dot itself stays a precise 4.5 px point — the halo does not enlarge the spacecraft's apparent position, per the "the white dot is the spacecraft" rule.
+- **Guardrail:** keep these strictly visual. They must not change where the craft is, how fast it moves, or the path geometry. If a future pass wants animated bodies or trails, weigh it against the honesty rules above first — a motion trail in particular risks reading as a second path.
+
+## Transitions
+
+- **Theme crossfade + focus dip.** The theme toggle adds `.theme-transition` to `<html>` for ~300 ms so surface colors blend; the canvas still snaps (it re-reads tokens on `themechange`). The focus toggle dips `.mission-grid` opacity, swaps the layout mid-dip, then fades back in. Both rules live in `lab.css` and are shared across all sims and the homepage. `prefers-reduced-motion` collapses every transition/animation to ~0 ms.
+
 ## Verification Pattern
 
 For solar UI changes, verify:
